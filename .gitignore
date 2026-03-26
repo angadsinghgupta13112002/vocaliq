@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build output
+client/dist/
+
+# Environment & secrets - NEVER COMMIT THESE
+.env
+.env.local
+service-account-key.json
+*.json
+!package.json
+!package-lock.json
+!client/package.json
+!client/package-lock.json
+!server/package.json
+!server/package-lock.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
