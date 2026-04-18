@@ -7,9 +7,13 @@
 const { Storage } = require("@google-cloud/storage");
 const path        = require("path");
 
-// Initialize GCS client using service account credentials from .env
-const keyFile = path.join(__dirname, "../", process.env.GOOGLE_APPLICATION_CREDENTIALS);
-const storage = new Storage({ keyFilename: keyFile });
+// Initialize GCS client:
+// - Local dev:  uses key file via GOOGLE_APPLICATION_CREDENTIALS
+// - Cloud Run:  uses Application Default Credentials (no keyFilename needed)
+const storageOptions = process.env.GOOGLE_APPLICATION_CREDENTIALS
+  ? { keyFilename: path.join(__dirname, "../", process.env.GOOGLE_APPLICATION_CREDENTIALS) }
+  : {};
+const storage = new Storage(storageOptions);
 const bucket  = storage.bucket(process.env.GCS_BUCKET_NAME);
 
 /**
