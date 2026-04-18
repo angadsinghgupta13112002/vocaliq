@@ -121,12 +121,14 @@ const CoachingReport = () => {
               ))}
             </div>
           </div>
-          <div style={{ flexShrink: 0, textAlign: "center", padding: "16px 24px", background: "var(--bg)", borderRadius: 12 }}>
-            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Detected</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--red)", marginBottom: 12 }}>{s.emotionDetected}</div>
-            <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Needed</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--green)" }}>{s.emotionNeeded}</div>
-          </div>
+          {(s.emotionDetected || s.emotionNeeded) && (
+            <div style={{ flexShrink: 0, textAlign: "center", padding: "16px 24px", background: "var(--bg)", borderRadius: 12 }}>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Detected</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--red)", marginBottom: 12 }}>{s.emotionDetected}</div>
+              <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Needed</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--green)" }}>{s.emotionNeeded}</div>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
