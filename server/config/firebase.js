@@ -5,9 +5,11 @@
  * Author: Lasya Uma Sri Lingala | CS651 Project 2
  */
 const admin = require("firebase-admin");
+const path  = require("path");
 
 // Load service account from file path specified in .env
-const serviceAccount = require(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+const keyPath      = path.join(__dirname, "../", process.env.GOOGLE_APPLICATION_CREDENTIALS);
+const serviceAccount = require(keyPath);
 
 // Initialize Firebase Admin SDK (only once)
 if (!admin.apps.length) {

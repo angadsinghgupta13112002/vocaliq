@@ -1,9 +1,4 @@
-/**
- * components/Navbar.jsx - Top Navigation Bar
- * Displays the AuraBoard logo, navigation links, and user logout button.
- * Author: Samuel Paul Chetty | CS651 Project 2
- */
-import { useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 const Navbar = () => {
@@ -14,17 +9,37 @@ const Navbar = () => {
 
   return (
     <nav className="navbar">
-      <div className="navbar-brand" onClick={() => navigate("/dashboard")}>
-        <span className="brand-icon">A</span> AuraBoard
-      </div>
-      <div className="navbar-links">
-        <button onClick={() => navigate("/photos")}>Photos</button>
-        <button onClick={() => navigate("/voice")}>Voice</button>
-        <button onClick={() => navigate("/analytics")}>Analytics</button>
-      </div>
+      <NavLink to="/dashboard" className="navbar-logo">
+        <div className="navbar-logo-icon">V</div>
+        VocalIQ
+      </NavLink>
+
+      <NavLink to="/dashboard" className={({ isActive }) => `navbar-link${isActive ? " active" : ""}`}>
+        Dashboard
+      </NavLink>
+      <NavLink to="/session/new" className={({ isActive }) => `navbar-link${isActive ? " active" : ""}`}>
+        New Session
+      </NavLink>
+
+      <div className="navbar-spacer" />
+
       <div className="navbar-user">
-        <span>{user?.displayName}</span>
-        <button onClick={handleLogout} className="btn-logout">Logout</button>
+        <div className="navbar-avatar">
+          {user?.photoURL
+            ? <img src={user.photoURL} alt={user.displayName} />
+            : (user?.displayName?.[0] || "U")}
+        </div>
+        <span style={{ fontSize: 13, color: "var(--muted)", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {user?.displayName?.split(" ")[0]}
+        </span>
+        <button
+          onClick={handleLogout}
+          style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 13, padding: "4px 8px", borderRadius: 6 }}
+          onMouseOver={e => e.currentTarget.style.color = "white"}
+          onMouseOut={e => e.currentTarget.style.color = "var(--muted)"}
+        >
+          Sign out
+        </button>
       </div>
     </nav>
   );

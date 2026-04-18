@@ -1,4 +1,4 @@
-# AuraBoard - Multi-stage Docker build for Google Cloud Run
+# VocalIQ - Multi-stage Docker build for Google Cloud Run
 # Stage 1: Build the React Vite client
 # Stage 2: Run Express server and serve the built React app
 # Author: Angaddeep Singh Gupta | CS651 Project 2

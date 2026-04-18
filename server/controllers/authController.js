@@ -18,17 +18,17 @@ const googleLogin = (req, res) => {
 const googleCallback = async (req, res) => {
   try {
     const { code } = req.query;
-    const { userInfo, accessToken } = await oauthService.exchangeGoogleCode(code);
+    const { userInfo } = await oauthService.exchangeGoogleCode(code);
 
     // Upsert user document in Firestore users collection
+    // NOTE: accessToken intentionally NOT stored — VocalIQ has no API that needs it
     await db.collection("users").doc(userInfo.uid).set({
-      uid:          userInfo.uid,
-      displayName:  userInfo.displayName,
-      email:        userInfo.email,
-      photoURL:     userInfo.photoURL,
-      provider:     "google",
-      accessToken,
-      updatedAt:    new Date(),
+      uid:         userInfo.uid,
+      displayName: userInfo.displayName,
+      email:       userInfo.email,
+      photoURL:    userInfo.photoURL,
+      provider:    "google",
+      updatedAt:   new Date(),
     }, { merge: true });
 
     // Issue a signed JWT for subsequent API requests
@@ -39,7 +39,7 @@ const googleCallback = async (req, res) => {
     );
 
     // Redirect back to React SPA with token in query string
-    res.redirect(`${process.env.CLIENT_URL}?token=${jwtToken}`);
+    res.redirect(`${process.env.CLIENT_URL}/login?token=${jwtToken}`);
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
