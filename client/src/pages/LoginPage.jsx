@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { trackEvent } from "../utils/analytics";
 
 const LoginPage = () => {
   const { user, loginWithToken } = useAuth();
@@ -16,7 +17,10 @@ const LoginPage = () => {
   }, []);
 
   useEffect(() => {
-    if (user) navigate("/dashboard");
+    if (user) {
+      trackEvent("login", { method: "google" });
+      navigate("/dashboard");
+    }
   }, [user]);
 
   const handleGoogleLogin = () => {

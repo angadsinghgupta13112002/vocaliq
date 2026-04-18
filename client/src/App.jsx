@@ -1,11 +1,22 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
+import { useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import LoginPage      from "./pages/LoginPage";
-import Dashboard      from "./pages/Dashboard";
-import SessionSetup   from "./pages/SessionSetup";
+import LoginPage       from "./pages/LoginPage";
+import Dashboard       from "./pages/Dashboard";
+import SessionSetup    from "./pages/SessionSetup";
 import CoachingSession from "./pages/CoachingSession";
-import CoachingReport from "./pages/CoachingReport";
+import CoachingReport  from "./pages/CoachingReport";
+import { trackPageView } from "./utils/analytics";
+
+// Fires a GA4 page_view on every React Router navigation
+const PageViewTracker = () => {
+  const location = useLocation();
+  useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location]);
+  return null;
+};
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -19,14 +30,17 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const AppRoutes = () => (
-  <Routes>
-    <Route path="/login"          element={<LoginPage />} />
-    <Route path="/dashboard"      element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-    <Route path="/session/new"    element={<ProtectedRoute><SessionSetup /></ProtectedRoute>} />
-    <Route path="/session/record" element={<ProtectedRoute><CoachingSession /></ProtectedRoute>} />
-    <Route path="/report/:id"     element={<ProtectedRoute><CoachingReport /></ProtectedRoute>} />
-    <Route path="*"               element={<Navigate to="/login" replace />} />
-  </Routes>
+  <>
+    <PageViewTracker />
+    <Routes>
+      <Route path="/login"          element={<LoginPage />} />
+      <Route path="/dashboard"      element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/session/new"    element={<ProtectedRoute><SessionSetup /></ProtectedRoute>} />
+      <Route path="/session/record" element={<ProtectedRoute><CoachingSession /></ProtectedRoute>} />
+      <Route path="/report/:id"     element={<ProtectedRoute><CoachingReport /></ProtectedRoute>} />
+      <Route path="*"               element={<Navigate to="/login" replace />} />
+    </Routes>
+  </>
 );
 
 const App = () => (

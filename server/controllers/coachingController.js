@@ -6,6 +6,7 @@
 const { analyzeVideoWithGemini, analyzeAudioWithGemini } = require("../services/geminiCoachingService");
 const { uploadVideo, uploadAudio }                       = require("../services/storageService");
 const { setDocument, queryCollection, getDocument }      = require("../services/firestoreService");
+const { sendServerEvent }                                = require("../services/analyticsService");
 
 // ─── POST /api/coaching/analyze ─────────────────────────────────────────────
 // Accepts a video or audio file + context fields, runs the two-pass Gemini
@@ -64,6 +65,14 @@ const analyzeSession = async (req, res) => {
 
     await setDocument("coaching_sessions", sessionId, sessionData);
     console.log(`[coaching] Session saved: ${sessionId}`);
+
+    // Track analysis completion in GA4 via Measurement Protocol (backend event)
+    sendServerEvent(uid, "session_analyzed", {
+      mode,
+      scenario,
+      language:     pass1.language     || "unknown",
+      overall_score: pass1.overallScore || 0,
+    });
 
     res.json({ success: true, sessionId, data: sessionData });
   } catch (err) {

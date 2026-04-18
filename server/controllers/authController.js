@@ -4,9 +4,10 @@
  * JWT issuance, and Firestore user upsert for Google Photos and Instagram.
  * Author: Angaddeep Singh Gupta | CS651 Project 2
  */
-const jwt            = require("jsonwebtoken");
-const { db }         = require("../config/firebase");
-const oauthService   = require("../services/oauthService");
+const jwt              = require("jsonwebtoken");
+const { db }           = require("../config/firebase");
+const oauthService     = require("../services/oauthService");
+const { sendServerEvent } = require("../services/analyticsService");
 
 // googleLogin - Redirects user to Google OAuth consent screen
 const googleLogin = (req, res) => {
@@ -37,6 +38,9 @@ const googleCallback = async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
     );
+
+    // Track login event in GA4 via Measurement Protocol (backend event)
+    sendServerEvent(userInfo.uid, "login", { method: "google" });
 
     // Redirect back to React SPA with token in query string
     res.redirect(`${process.env.CLIENT_URL}/login?token=${jwtToken}`);

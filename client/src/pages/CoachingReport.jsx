@@ -5,6 +5,7 @@ import Navbar from "../components/Navbar";
 import ScoreRing from "../components/ScoreRing";
 import TimestampedTranscript from "../components/TimestampedTranscript";
 import { getSession } from "../services/api";
+import { trackEvent } from "../utils/analytics";
 
 const ScoreBar = ({ label, value }) => {
   const color = value >= 8 ? "var(--green)" : value >= 6 ? "var(--brand)" : value >= 4 ? "var(--yellow)" : "var(--red)";
@@ -139,7 +140,7 @@ const CoachingReport = () => {
             ["tips",        "Improvement Tips"],
             ["vocal",       "Vocal Control"],
           ].map(([id, label]) => (
-            <button key={id} className={`tab-btn${activeTab === id ? " active" : ""}`} onClick={() => setActiveTab(id)}>
+            <button key={id} className={`tab-btn${activeTab === id ? " active" : ""}`} onClick={() => { setActiveTab(id); trackEvent("report_tab_viewed", { tab: id }); }}>
               {label}
             </button>
           ))}

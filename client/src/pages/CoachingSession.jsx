@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import Navbar from "../components/Navbar";
 import VideoRecorder from "../components/VideoRecorder";
 import { analyzeSession } from "../services/api";
+import { trackEvent } from "../utils/analytics";
 
 const STEPS = [
   "Uploading to Gemini File API...",
@@ -31,6 +32,7 @@ const CoachingSession = () => {
 
     setAnalyzing(true);
     setStepIdx(0);
+    trackEvent("session_submitted", { mode, scenario: context.scenario || "General" });
 
     // Fake progress steps (each ~15 seconds) while API runs
     stepTimer.current = setInterval(() => {
@@ -47,10 +49,11 @@ const CoachingSession = () => {
       formData.append("goal",     context.goal     || "Communicate effectively");
       formData.append("mode",     mode);
 
-      const res = await analyzeSesssion(formData);
+      const res = await analyzeSession(formData);
       clearInterval(stepTimer.current);
 
       if (res.data.success) {
+        trackEvent("session_complete", { mode, scenario: context.scenario || "General" });
         toast.success("Analysis complete!");
         navigate(`/report/${res.data.sessionId}`);
       }
