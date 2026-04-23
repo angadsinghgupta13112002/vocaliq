@@ -3,7 +3,7 @@
 An AI-powered speaking coach. Record or upload a video/audio clip, get a 1–10 score, timestamped feedback, and a personalized coaching plan — powered by Google Gemini 2.5 Flash.
 
 **Live:** https://vocaliq-956080638663.us-central1.run.app  
-**Course:** CS651 — Advanced Web Technologies
+**Course:** CS651 — Web Systems
 
 ---
 
@@ -42,4 +42,4 @@ React 19 + Vite · Express 5 · Node.js 20 · Google Gemini 2.5 Flash · Cloud V
 
 ## Authors
 
-Angaddeep Singh Gupta · Samuel Paul Chetty · Abhinay Konuri
+Angaddeep Singh Gupta · Samuel Paul Chetty · Abhinay Konuri · Lasya Uma Sei Lingala
