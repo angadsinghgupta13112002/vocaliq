@@ -4,7 +4,8 @@ import toast from "react-hot-toast";
 import Navbar from "../components/Navbar";
 import ScoreRing from "../components/ScoreRing";
 import TimestampedTranscript from "../components/TimestampedTranscript";
-import EmotionTimeline from "../components/EmotionTimeline";
+import EmotionTimeline  from "../components/EmotionTimeline";
+import GestureTimeline  from "../components/GestureTimeline";
 import { getSession } from "../services/api";
 import { trackEvent } from "../utils/analytics";
 
@@ -139,6 +140,7 @@ const CoachingReport = () => {
           {[
             ["overview",   "Overview"],
             ["emotions",   "😊 Emotion Timeline"],
+            ["gestures",   "🖐️ Gestures"],
             ["transcript", "Transcript & Timestamps"],
             ["tips",       "Improvement Tips"],
             ["vocal",      "Vocal Control"],
@@ -202,6 +204,24 @@ const CoachingReport = () => {
               <p className="text-muted text-sm" style={{ marginTop: 12 }}>
                 Emotion tracking is available for video sessions recorded or uploaded with
                 a clear front-facing view. Make sure your face is visible to the camera.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Tab: Gesture Timeline */}
+        {activeTab === "gestures" && (
+          <div className="card">
+            <h3 style={{ marginBottom: 20 }}>🖐️ Hand Gesture Timeline — MediaPipe Analysis</h3>
+            <GestureTimeline
+              timeline={s.gestureTimeline || []}
+              summary={s.gestureSummary   || {}}
+            />
+            {(!s.gestureTimeline || s.gestureTimeline.length === 0) && (
+              <p className="text-muted text-sm" style={{ marginTop: 12 }}>
+                Gesture tracking is available for video sessions where your hands
+                are visible in the frame. Make sure you are positioned so your
+                hands appear in the camera view.
               </p>
             )}
           </div>

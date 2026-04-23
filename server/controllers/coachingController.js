@@ -9,6 +9,7 @@ const { uploadVideo, uploadAudio }                       = require("../services/
 const { setDocument, queryCollection, getDocument }      = require("../services/firestoreService");
 const { sendServerEvent }                                = require("../services/analyticsService");
 const { analyzeFrames, summarizeEmotionTimeline }        = require("../services/visionService");
+const { summarizeGestureTimeline }                       = require("../services/gestureService");
 
 // ─── POST /api/coaching/analyze ─────────────────────────────────────────────
 // Accepts a video or audio file + context fields + optional JSON frames array.
@@ -23,11 +24,12 @@ const analyzeSession = async (req, res) => {
   try {
     const { uid } = req.user;
     const {
-      scenario = "General presentation",
-      audience = "General audience",
-      goal     = "Communicate effectively",
-      mode     = "video",
-      frames: framesJson,          // Optional — JSON string of frame array
+      scenario  = "General presentation",
+      audience  = "General audience",
+      goal      = "Communicate effectively",
+      mode      = "video",
+      frames:   framesJson,    // Optional — JSON string of emotion frame array
+      gestures: gesturesJson,  // Optional — JSON string of gesture timeline (from MediaPipe)
     } = req.body;
     const context = { scenario, audience, goal };
 
@@ -46,6 +48,19 @@ const analyzeSession = async (req, res) => {
       }
     }
 
+    // Parse gesture timeline from MediaPipe (client-side) — also graceful
+    let gestureTimeline = [];
+    let gestureSummary  = {};
+    if (gesturesJson) {
+      try {
+        gestureTimeline = JSON.parse(gesturesJson);
+        gestureSummary  = summarizeGestureTimeline(gestureTimeline);
+        console.log(`[coaching] Received ${gestureTimeline.length} gesture frames — dominant: ${gestureSummary.dominantGesture}`);
+      } catch (_) {
+        console.warn("[coaching] Could not parse gestures JSON — skipping gesture summary");
+      }
+    }
+
     console.log(`[coaching] Starting ${mode} analysis for user ${uid}`);
 
     // ── Run Gemini + GCS upload + Cloud Vision in parallel ──────────────────
@@ -54,8 +69,8 @@ const analyzeSession = async (req, res) => {
 
     let mediaUrl;
     let analysisResult;
-    let emotionTimeline   = [];
-    let emotionSummary    = {};
+    let emotionTimeline = [];
+    let emotionSummary  = {};
 
     if (mode === "audio") {
       // Audio mode: no frames — skip Vision entirely
@@ -104,9 +119,12 @@ const analyzeSession = async (req, res) => {
       vocalControl:       pass2.vocalControl || {},
       strengthsToKeep:    pass2.strengthsToKeep || [],
       practicePlan:       pass2.practicePlan || "",
-      // Cloud Vision emotion timeline — new fields
-      emotionTimeline,     // Array of { second, emotion, confidence }
-      emotionSummary,      // { dominantEmotion, emotionCounts, nervousSeconds, confidentSeconds }
+      // Cloud Vision emotion timeline
+      emotionTimeline,    // [{ second, emotion, confidence, eyeContact, ... }]
+      emotionSummary,     // { dominantEmotion, emotionCounts, eyeContactPercent, ... }
+      // MediaPipe gesture timeline
+      gestureTimeline,    // [{ second, gesture, handsCount }]
+      gestureSummary,     // { dominantGesture, gestureCounts, expressivenessScore, ... }
       createdAt:          new Date(),
     };
 

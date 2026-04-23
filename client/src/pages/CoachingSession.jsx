@@ -5,11 +5,13 @@ import Navbar from "../components/Navbar";
 import VideoRecorder from "../components/VideoRecorder";
 import GooglePhotosPicker from "../components/GooglePhotosPicker";
 import { analyzeSession, downloadPhotosVideo } from "../services/api";
-import { extractFrames } from "../utils/frameExtractor";
+import { extractFrames }    from "../utils/frameExtractor";
+import { extractGestures }  from "../utils/gestureExtractor";
 import { trackEvent } from "../utils/analytics";
 
 const STEPS = [
-  "Extracting frames for emotion analysis...",
+  "Extracting frames for emotion + gesture analysis...",
+  "Detecting hand gestures with MediaPipe...",
   "Uploading to Gemini File API...",
   "Gemini processing your video...",
   "Pass 1: Analyzing speech, emotions, delivery...",
@@ -62,23 +64,33 @@ const CoachingSession = () => {
     }, 12000);
 
     try {
-      // ── Step 1: Extract frames for Cloud Vision ────────────────────────
-      // Only for video modes — skipped for audio-only sessions
-      let framesJson = null;
+      // ── Step 1 & 2: Extract frames (Cloud Vision) + gestures (MediaPipe) ─
+      // Both run client-side on video modes only, in parallel for speed.
+      let framesJson   = null;
+      let gesturesJson = null;
+
       if (mode !== "audio") {
-        try {
-          const frames = await extractFrames(mediaBlob, 3, 20, 0.7);
-          if (frames.length > 0) {
-            framesJson = JSON.stringify(frames);
-            console.log(`[session] Extracted ${frames.length} frames for Vision analysis`);
-          }
-        } catch (frameErr) {
-          // Non-fatal — coaching still works without emotion timeline
-          console.warn("[session] Frame extraction failed:", frameErr.message);
+        const [frames, gestures] = await Promise.allSettled([
+          extractFrames(mediaBlob, 3, 20, 0.7),
+          extractGestures(mediaBlob, 3, 20),
+        ]);
+
+        if (frames.status === "fulfilled" && frames.value.length > 0) {
+          framesJson = JSON.stringify(frames.value);
+          console.log(`[session] Extracted ${frames.value.length} frames for Vision`);
+        } else {
+          console.warn("[session] Frame extraction failed or returned empty");
+        }
+
+        if (gestures.status === "fulfilled" && gestures.value.length > 0) {
+          gesturesJson = JSON.stringify(gestures.value);
+          console.log(`[session] Extracted ${gestures.value.length} gesture frames`);
+        } else {
+          console.warn("[session] Gesture extraction failed or returned empty");
         }
       }
 
-      // ── Step 2: Build multipart form data ─────────────────────────────
+      // ── Step 3: Build multipart form data ────────────────────────────
       const formData = new FormData();
       const ext      = mode === "audio" ? "webm" : "webm";
       formData.append("media",    mediaBlob, `recording.${ext}`);
@@ -86,7 +98,8 @@ const CoachingSession = () => {
       formData.append("audience", context.audience || "General audience");
       formData.append("goal",     context.goal     || "Communicate effectively");
       formData.append("mode",     mode);
-      if (framesJson) formData.append("frames", framesJson);
+      if (framesJson)   formData.append("frames",   framesJson);
+      if (gesturesJson) formData.append("gestures", gesturesJson);
 
       const res = await analyzeSession(formData);
       clearInterval(stepTimer.current);
