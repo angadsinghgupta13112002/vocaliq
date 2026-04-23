@@ -77,15 +77,27 @@ export const downloadPhotosVideo = async (videoUrl) => {
     // Read it as text so we can surface the real server error message.
     if (err.response?.data instanceof Blob) {
       try {
-        const text    = await err.response.data.text();
-        const payload = JSON.parse(text);
-        const message = payload?.error || "Failed to download from Google Drive";
-        throw new Error(message);
+        const text = await err.response.data.text();
+        if (text) {
+          const payload = JSON.parse(text);
+          throw new Error(payload?.error || "Download failed");
+        }
       } catch (parseErr) {
-        if (parseErr.message !== "Failed to download from Google Drive") throw parseErr;
+        // Only re-throw if we successfully parsed a real error message
+        if (parseErr.message && parseErr.message !== "Download failed"
+            && !parseErr.message.includes("JSON")) {
+          throw parseErr;
+        }
       }
     }
-    throw err;
+    // Fallback: surface axios error message or a friendly default
+    throw new Error(
+      err.response?.status === 403
+        ? "Google Drive session expired. Please reconnect Drive and try again."
+        : err.message?.includes("timeout")
+        ? "Download timed out — try a shorter video or check your connection."
+        : "Failed to download from Google Drive. Please try again."
+    );
   }
 };
 
