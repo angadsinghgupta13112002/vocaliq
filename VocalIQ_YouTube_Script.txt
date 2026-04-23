@@ -1,5 +1,5 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-VOCALIQ — YOUTUBE VIDEO SCRIPT (FINAL)
+VOCALIQ — YOUTUBE VIDEO SCRIPT (FINAL — UPDATED)
 CS651: Web Systems | Professor Lynne Grewe | CSUEB
 Word-for-word — read exactly as written
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -16,7 +16,7 @@ WHAT TO HAVE OPEN BEFORE RECORDING:
   Tab 3: Firestore → console.firebase.google.com → Firestore
   Tab 4: GA4 Realtime → analytics.google.com → Reports → Realtime
   Tab 5: Cloud Logging → console.cloud.google.com → Logging → Logs Explorer
-  Tab 6: VS Code with visionService.js open
+  Tab 6: VS Code with geminiCoachingService.js and visionService.js open
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ABHINAY — SLIDES 1, 2, 3, 4, 5, 6
@@ -52,13 +52,18 @@ users browse and pull videos directly from their
 Google Drive account into the coaching session.
 
 Google Gemini 2.5 Flash — the AI engine that analyzes
-your speech through a two-pass pipeline and generates
-a full coaching report.
+your speech through a three-pass pipeline and generates
+a full coaching report including hand gesture analysis.
 
 Google Cloud Vision API — extracts frames from your
 video every 3 seconds and uses Face Detection to build
 a second-by-second emotion timeline showing when you
 looked nervous, confident, or anxious.
+
+MediaPipe HandLandmarker — a client-side AI model that
+tracks 21 hand landmarks per frame and classifies your
+gestures in real time. For Drive-uploaded videos,
+Gemini handles this analysis server-side instead.
 
 Google Cloud Firestore — stores all user data and
 coaching session results.
@@ -67,7 +72,8 @@ Google Cloud Storage — stores the uploaded video and
 audio files.
 
 Google Cloud Run — where the entire application is
-deployed as a containerized service.
+deployed as a containerized service with 2 vCPUs and
+2 gigabytes of RAM to handle large video processing.
 
 Google Analytics GA4 — tracks user behavior on both
 the frontend and backend.
@@ -101,20 +107,33 @@ grid of their video files to pick from — no downloading
 to their device first.
 
 We proposed AI speech analysis with scores and coaching
-feedback — delivered through a two-pass Gemini pipeline
+feedback — delivered through a three-pass Gemini pipeline
 that Samuel will walk through in detail.
 
 We proposed Cloud Vision facial expression analysis —
-fully delivered. The app extracts frames from uploaded
-videos using the browser Canvas API, sends them to
-Google Cloud Vision Face Detection, and generates a
-per-second emotion timeline on the coaching report.
-This was specifically requested by our professor during
-the project, and we implemented it fully.
+fully delivered. For locally recorded and uploaded videos,
+the browser extracts frames using the Canvas API and
+sends them to Cloud Vision for a per-second emotion
+timeline. For Google Drive videos — which the client
+never downloads — the server extracts frames using ffmpeg
+and runs them through Cloud Vision server-side. Either
+way, every session gets a full emotion timeline.
+
+We also added hand gesture detection — requested by our
+professor during the project. For locally recorded videos,
+we use MediaPipe HandLandmarker running entirely in the
+browser. It processes the video frame by frame, detects
+21 hand landmarks, and classifies gestures such as
+open hand, pointing, peace sign, thumbs up, and fist.
+For Google Drive videos, Gemini analyzes the already-
+uploaded video in a dedicated gesture pass and returns
+the same timeline format. The coaching report shows a
+gesture color bar, expressiveness score, and per-gesture
+coaching feedback.
 
 We proposed Firestore session history — working. Every
 session is saved and the Dashboard shows all past
-sessions.
+sessions with scores.
 
 We proposed Cloud Run deployment — working. The app
 has been continuously deployed and updated throughout
@@ -140,24 +159,25 @@ Stage one uses a Node.js Alpine image to install
 dependencies and run the Vite build command, which
 compiles our React frontend into a static bundle.
 
-Stage two copies that bundle alongside our Express
-server code and runs Node.js. The Express server does
-two things — it serves the React static files, and it
-handles all API routes under slash api. Frontend and
-backend are served from the exact same URL.
+Stage two installs ffmpeg — the video processing
+library we use for server-side frame extraction on
+Drive-uploaded videos. Then it copies the compiled
+React bundle alongside our Express server code and
+runs Node.js. The Express server serves the React
+static files and handles all API routes under slash api.
+Frontend and backend are served from the exact same URL.
 
 For security, we use Application Default Credentials.
 There is no service account key file inside the Docker
 image. The Cloud Run service has a service account
 attached with exactly the permissions it needs —
-Firestore, Cloud Storage, and Gemini.
+Firestore, Cloud Storage, Cloud Vision, and Gemini.
 
 [SHOW: Revisions tab in Cloud Run]
 
 The Revisions tab shows our full deployment history.
-You can see every time we pushed a new image and
-deployed. Each revision has a timestamp and image
-digest as an audit trail.
+Each revision has a timestamp and image digest as an
+audit trail.
 
 [SHOW: the live URL]
 
@@ -168,20 +188,19 @@ SLIDE 4 — Live Demonstration
 ─────────────────────────────────────────────────────────
 
 Now let me demonstrate the full application live,
-including both new features we added — the Google
-Drive video picker and the Cloud Vision emotion
-timeline.
+including the Google Drive integration and all five
+report tabs — including the Emotion Timeline and the
+new Gesture Detection tab.
 
 [OPEN: https://vocaliq-956080638663.us-central1.run.app]
 
-This is the VocalIQ landing page. The only action
-is Sign in with Google.
+This is the VocalIQ landing page.
 
 [CLICK: Sign in with Google → complete OAuth]
 
 We're in. The server exchanged the authorization code,
 created my user document in Firestore, issued a JWT
-token, and redirected me back to the app.
+token, and redirected me here.
 
 PART 1 — GOOGLE DRIVE VIDEO PICKER
 
@@ -192,32 +211,29 @@ I'll click New Session and select Upload mode.
 [NAVIGATE to New Session → select Upload → Start Session]
 
 You can see the Upload page. Below the drop zone
-there is a Browse Google Drive button. I'll click it.
+there is a Browse Google Drive button.
 
 [CLICK: Browse Google Drive]
 
-This opens the Google Drive video picker. The first
-time a user clicks this, they'll see a Connect Google
-Drive screen — which redirects them through Google
-OAuth to authorize drive.readonly access.
-
-Since I've already connected, I'm seeing my video
-library directly — a grid of all my video files
-from Google Drive with thumbnails and dates.
+This opens the Google Drive video picker. Since I've
+already connected, I'm seeing my video library
+directly — a grid of all my video files from Google
+Drive with thumbnails and dates.
 
 [POINT to the grid of videos]
 
-The user simply clicks any video, it downloads from
-Google Drive directly to the app, and is ready for
-analysis — no local file needed.
+The user simply clicks any video and it's selected for
+analysis immediately — no local download required.
+For large files, the server downloads directly from
+Drive, bypasses the browser entirely, and runs the
+full analysis pipeline including emotion timeline,
+gesture detection, and Gemini coaching — all
+server-side.
 
-PART 2 — RECORDING AND FULL ANALYSIS WITH EMOTION TIMELINE
+PART 2 — RECORDING AND FULL ANALYSIS
 
-Let me now record a video and show the full coaching
-report including the Cloud Vision emotion timeline.
-
-I'll go back to New Session and choose Record Video mode
-this time so you can see the full pipeline.
+Let me now record a video and walk through the complete
+coaching report including every tab.
 
 [NAVIGATE: New Session → Video mode → set scenario to
 Job Interview → audience to Hiring Panel → Start Session]
@@ -237,96 +253,135 @@ how I can add value to your organization."
 
 [STOP RECORDING — click Analyze My Speech]
 
-Watch the progress steps — the first step is extracting
-frames from the video for Cloud Vision analysis. Then
-the video uploads to the Gemini File API. Then the
-two Gemini passes run. Then Cloud Vision processes all
-the frames in parallel. Then the session is saved.
+Watch the progress steps — the first step extracts
+video frames for Cloud Vision. The second runs
+MediaPipe to detect hand gestures. Then the video
+uploads to the Gemini File API. Then the two speech
+coaching passes run. Then Cloud Vision processes all
+frames in parallel. Then the session is saved to
+Firestore.
 
-[WAIT for analysis — approximately 30-60 seconds]
+[WAIT for analysis — approximately 30–75 seconds]
 
 Here is the full coaching report.
 
+[POINT to the five tabs at the top]
+
+There are five tabs — Overview, Emotion Timeline,
+Gestures, Transcript, and Tips and Coaching. Let me
+walk through each one.
+
+OVERVIEW TAB
+
 [POINT to the score ring and overview]
 
-The Overview tab shows my overall score, the five
-sub-scores, and the emotion Gemini detected.
+The Overview tab shows my overall score out of ten,
+the five sub-scores, and the primary emotion Gemini
+detected compared to the emotion this scenario needed.
 
-Now let me click the Emotion Timeline tab — this
-is the Cloud Vision feature.
+EMOTION TIMELINE TAB
 
 [CLICK: Emotion Timeline tab]
 
-This is the brand new Cloud Vision emotion timeline.
-At the top are three summary cards — my dominant
-emotion, my nervous moments with the timestamps
-in seconds, and my confident moments.
+This is the Cloud Vision emotion timeline.
+At the top are summary cards — dominant emotion,
+eye contact percentage, nervous moments, and
+confident moments with their timestamps.
 
-Below that is the horizontal timeline bar — each
-segment represents one analyzed frame, color-coded
-by emotion. Green means confident, orange means
-nervous, gray means neutral.
+Below is the horizontal timeline bar — each segment
+is one analyzed frame, color-coded by emotion. Green
+is confident, orange is nervous, gray is neutral.
 
 [POINT to the bar]
 
-You can hover over any segment to see the exact
-timestamp and emotion for that frame.
+Below the bar is the emotion breakdown chart showing
+what percentage of frames fell into each emotion
+category, and at the bottom a personalized coaching
+insight based on the dominant emotion.
 
-Below the bar is the emotion breakdown chart —
-showing what percentage of my total frames fell
-into each emotion category.
+GESTURES TAB
 
-And at the bottom is a personalized coaching
-insight based on my dominant emotion.
+[CLICK: Gestures tab]
 
-[CLICK through Transcript, Tips, and Vocal Control tabs briefly]
+This is the hand gesture detection tab. At the top
+are four summary cards — the Dominant Gesture I used
+most throughout the speech, my Expressiveness Score
+out of 100, the percentage of frames where my hands
+were visible, and the number of tense moments where
+a fist gesture was detected.
 
-The other tabs show the Gemini coaching — the full
-transcript with timestamps, detailed tip cards with
-exercises, and the vocal control breakdown.
+[POINT to the color bar]
+
+Below is the gesture timeline bar — each segment is
+color-coded by gesture type. Blue is open hand,
+purple is pointing, green is peace sign, yellow
+is thumbs up, red is fist.
+
+Below that is the gesture breakdown chart showing
+frequency, and at the bottom a specific coaching
+tip based on my dominant gesture — for example, if
+I mostly showed an open hand, it confirms confidence
+and expressiveness.
+
+This analysis was captured entirely client-side using
+MediaPipe — no data left the browser until the final
+submission.
+
+TRANSCRIPT TAB
+
+[CLICK: Transcript tab]
+
+The Transcript tab shows a complete timestamped
+breakdown of my speech with issue tags on each
+segment — things like filler words, monotone delivery,
+or too fast pacing — and a suggested fix for each.
+
+TIPS AND COACHING TAB
+
+[CLICK: Tips tab]
+
+The Tips and Coaching tab shows Gemini's detailed
+coaching cards from Pass 2, the vocal control
+breakdown with current versus target WPM, and a
+personalized seven-day practice plan.
 
 [GO TO: Dashboard]
 
-And the Dashboard shows this session saved with
-the date, scenario, and score. All data is stored
-in Firestore.
+The Dashboard shows all sessions with dates, scenarios,
+and scores — all stored in Firestore.
 
 ─────────────────────────────────────────────────────────
 SLIDE 5 — Google Cloud Console Dashboard
 ─────────────────────────────────────────────────────────
 
-Now let me walk you through the Google Cloud
-infrastructure behind what you just saw.
+Now let me walk through the Google Cloud infrastructure
+behind what you just saw.
 
 [OPEN: console.cloud.google.com → Cloud Run → vocaliq → Metrics]
 
 This is the Cloud Run metrics dashboard for VocalIQ.
 
 The Request Count chart shows every API request our
-container has handled. Each spike corresponds to a
-user submitting a recording for analysis.
+container has handled.
 
-The Request Latency graph shows an important pattern
-for our app. Regular API calls like loading the
-dashboard have low latency. But the p95 and p99
-lines are much higher — that's because the Gemini
-analysis plus Cloud Vision frame processing can take
-up to 90 seconds. We configured Cloud Run's timeout
-to 540 seconds to accommodate this.
+The Request Latency graph shows the expected pattern
+for our app. Regular API calls have low latency. But
+p95 and p99 are much higher — the Gemini analysis plus
+Cloud Vision frame processing plus MediaPipe gesture
+analysis can take up to 90 seconds. We configured
+Cloud Run's timeout to 540 seconds to accommodate this.
 
 [POINT to Container Instance Count]
 
 The Container Instance Count shows Cloud Run's
-auto-scaling. When there's no traffic, it scales
-to zero — keeping costs near zero when idle. New
-requests spin up a container within seconds.
+auto-scaling in action. When there's no traffic it
+scales to zero — keeping costs near zero when idle.
 
 [SHOW: Revisions tab]
 
-The Revisions tab is our deployment audit log.
-Every deploy creates a new revision with timestamp
-and image digest. You can see the many revisions
-from our active development of this project.
+The Revisions tab is our deployment audit log. You
+can see the many revisions from our active development
+of this project.
 
 ─────────────────────────────────────────────────────────
 SLIDE 6 — Google Cloud Database (Firestore)
@@ -345,21 +400,26 @@ Each users document is keyed by the user's Google UID.
 It stores the display name, email, photo URL, provider,
 and for users who have connected Google Drive, it also
 stores the Drive access token and refresh token securely.
-This document is upserted on every login using a merge
-operation so no data is ever overwritten accidentally.
 
 [OPEN: coaching_sessions collection → open a document]
 
 Each coaching session document contains the full output
-of both Gemini passes AND the Cloud Vision emotion
-analysis. You can see the emotionTimeline array —
-each entry has a second, emotion label, and confidence
-score. And the emotionSummary object with the dominant
-emotion, nervous seconds, and confident seconds.
+of the Gemini coaching pipeline AND the Cloud Vision
+emotion analysis AND the gesture detection.
 
-This is all written in a single Firestore operation
-at the end of each analysis — Gemini results and
-Vision results together.
+You can see the emotionTimeline array — each entry has
+a second, emotion label, confidence, and eye contact
+direction. You can see the emotionSummary object with
+dominant emotion, nervous seconds, confident seconds,
+and eye contact percentage.
+
+And you can see the gestureTimeline array — each entry
+has a second, gesture label, and hand count. And the
+gestureSummary with dominant gesture, expressiveness
+score, and hands-visible percentage.
+
+All of this is written in a single Firestore operation
+at the end of each analysis.
 
 [REFRESH while the demo session is visible]
 
@@ -378,127 +438,194 @@ SAMUEL — SLIDES 7, 8, 9, 10, 11
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ─────────────────────────────────────────────────────────
-SLIDE 7 — Google Cloud Vision
+SLIDE 7 — Google Cloud Vision + MediaPipe Gesture Detection
 ─────────────────────────────────────────────────────────
 
 Thank you Abhinay. I'm Samuel Paul Chetty, and I'll
-walk you through the two AI systems powering VocalIQ —
-Cloud Vision and Gemini — then cover Analytics,
-Logging, and our project summary.
+walk you through the two visual AI systems powering
+VocalIQ — Cloud Vision for emotions and MediaPipe for
+gestures — then cover Gemini, Analytics, Logging,
+and our project summary.
 
-Google Cloud Vision is one of the two AI systems
-running in VocalIQ. Specifically, we use Cloud Vision's
-Face Detection feature to analyze the speaker's facial
-expressions frame by frame.
+Let me start with the emotion analysis pipeline.
 
-Let me explain the full pipeline.
+EMOTION TIMELINE — CLOUD VISION
+
+Google Cloud Vision is what builds the second-by-second
+emotion timeline you saw in the report.
 
 [OPEN: VS Code → client/src/utils/frameExtractor.js]
 
-Step one happens entirely in the browser. When a user
-submits a video, before it's uploaded to the server,
-our frameExtractor.js utility uses the browser's
-HTML5 Video element and Canvas API to extract one JPEG
-frame every three seconds — up to twenty frames total.
-
+For locally recorded and uploaded videos, step one
+happens entirely in the browser. Our frameExtractor.js
+uses the HTML5 Video element and Canvas API to extract
+one JPEG frame every three seconds — up to twenty frames.
 Each frame is captured at 320 by 240 resolution and
-encoded as a base64 JPEG string. The entire extraction
-happens client-side — no server roundtrip, no ffmpeg,
+encoded as a base64 JPEG string. No server roundtrip,
 no extra dependencies.
+
+[OPEN: VS Code → server/utils/serverFrameExtractor.js]
+
+For Google Drive videos — which the client never
+downloads — we run frame extraction server-side.
+Our serverFrameExtractor.js writes the video buffer
+to a temporary file, calls ffmpeg to extract JPEG
+frames at the same three-second interval, reads them
+back as base64 strings, then cleans up all temp files.
+This runs in parallel with the Gemini analysis so
+it adds near-zero extra wall-clock time.
 
 [OPEN: VS Code → server/services/visionService.js]
 
-Step two is on the server. The frames array is sent
-to our Express server alongside the video file as part
-of the multipart form submission.
-
-Our visionService.js takes those frames and sends
-them to the Google Cloud Vision Face Detection API
-in batches of five — to stay within rate limits —
-using Promise.all for parallel processing.
+Step two is identical regardless of where the frames
+came from. Our visionService.js sends those frames to
+the Google Cloud Vision Face Detection API in batches
+of five — to stay within rate limits — using Promise.all.
 
 For each frame, Cloud Vision returns likelihood scores
-for four emotions — joy, sorrow, anger, and surprise —
-rated on a scale from VERY_UNLIKELY to VERY_LIKELY.
+for four emotions — joy, sorrow, anger, and surprise.
+We map these to coaching labels. High joy means
+confident. High sorrow means nervous. Combined sorrow
+and low joy means anxious.
 
-We map these to coaching-specific labels. High joy
-means confident. High sorrow means nervous. Combined
-sorrow and low joy means anxious. High anger means
-frustrated. We calculate a confidence score for each
-detection and attach the timestamp.
+Cloud Vision also returns pan and tilt angles for
+the face. If the speaker is turned more than 15 degrees
+horizontally or 20 degrees vertically, we flag that
+frame as looking away — this is how we build the eye
+contact percentage you see in the report.
 
 [SHOW: the Emotion Timeline tab on the coaching report]
 
-The result is the emotion timeline you saw in the demo
-— each second mapped to an emotion, summarized into
-dominant emotion, nervous moments, and confident moments.
+The result is the emotion timeline — each second mapped
+to an emotion, eye contact direction, and confidence
+score. The summary card shows dominant emotion, nervous
+moments, confident moments, and eye contact percentage.
 
-Critically, the Vision analysis runs in parallel with
-the Gemini pipeline on the server. Both start at the
-same time. Since Cloud Vision processes twenty small
-JPEG frames while Gemini processes a full video file,
-Vision almost always finishes first — so it adds
-nearly zero extra time to the total analysis duration.
+GESTURE DETECTION — MEDIAPIPE
+
+[OPEN: VS Code → client/src/utils/gestureExtractor.js]
+
+For locally recorded and uploaded videos, gesture
+detection runs entirely in the browser using the
+MediaPipe HandLandmarker model — loaded once from
+a CDN and cached as a singleton.
+
+The extractor seeks through the video at three-second
+intervals, draws each frame onto a canvas, and passes
+it to MediaPipe for landmark detection. MediaPipe returns
+21 landmark coordinates per hand — from wrist to each
+fingertip.
+
+We classify gestures from those landmarks using a simple
+rule system — we check whether each finger is extended
+by comparing the y-coordinate of the fingertip to the
+metacarpal base. A finger is extended if the tip is
+meaningfully above the base joint. Combined with thumb
+direction detection and priority ordering, we classify
+eight gesture types: open hand, pointing, peace,
+thumbs up, fist, partial open, neutral hand, and
+no hands.
+
+[SHOW: the Gestures tab on the coaching report]
+
+The result is the gesture timeline — a color bar over
+time, an expressiveness score combining hands-visible
+percentage and expressive gesture rate, a breakdown
+chart by gesture type, and a coaching tip specific to
+the dominant gesture.
+
+For Google Drive videos where the client can't run
+MediaPipe, Gemini handles gesture analysis in a
+dedicated third pass — which Samuel will cover
+in the next slide.
 
 ─────────────────────────────────────────────────────────
-SLIDE 8 — Google Gemini
+SLIDE 8 — Google Gemini (Three-Pass Pipeline)
 ─────────────────────────────────────────────────────────
 
 The Gemini API is the core of VocalIQ. We use
-Gemini 2.5 Flash through a two-pass chained pipeline.
+Gemini 2.5 Flash through a three-pass pipeline —
+two passes for speech coaching and a third for
+gesture analysis on Drive-uploaded videos.
 
-Let me explain why we designed it this way.
+Let me explain the design.
+
+[OPEN: VS Code → server/services/geminiCoachingService.js]
 
 A naive approach sends the video to Gemini with one
 prompt asking for everything at once. The problem is
 that Gemini produces generic, surface-level advice
 when asked too many things simultaneously.
 
-We wanted coaching that is grounded in what the
-speaker actually did — specific to their recording,
-not a template response.
+We wanted coaching grounded in what the speaker
+actually did — specific to their recording.
 
-[SHOW: the coaching report on screen]
+[SCROLL to the analyzeVideoWithGemini function]
 
-In Pass 1, we upload the video file to the Gemini
-File API — a dedicated endpoint for large media files.
-We then send a structured prompt asking Gemini to
-act as a speech assessment engine and return JSON.
+In Pass 1, we write the video buffer to a temporary
+file and upload it to the Gemini File API — a dedicated
+endpoint for large media files. We poll until the file
+is in ACTIVE state, meaning Gemini has fully processed
+the video and it's ready for multimodal queries.
 
-That JSON contains the overall score from zero to ten,
-five sub-scores across content clarity, emotional
-delivery, vocal confidence, pacing, and audience
-engagement, the emotion Gemini detected versus the
-emotion needed for that scenario, the speaker's words
-per minute, and a full timestamped transcript broken
-into segments.
+We then send a structured prompt asking Gemini to act
+as a speech assessment engine and return JSON.
 
-[POINT to Overview and Transcript tabs]
+That JSON contains the overall score, five sub-scores
+across content clarity, emotional delivery, vocal
+confidence, pacing, and audience engagement, the
+emotion detected versus the emotion needed for this
+scenario, the speaker's words per minute, and a full
+timestamped transcript broken into segments with issue
+tags and suggested fixes.
+
+[POINT to Pass 1 section]
 
 Everything on the Overview and Transcript tabs
 came from Pass 1.
 
-Pass 2 takes the entire Pass 1 JSON output and
-injects it as context into a second prompt. We
-tell Gemini — here is what you observed. Now act
-as a personal speaking coach and build a detailed
-improvement plan based specifically on these findings.
+[SCROLL to Pass 2 section]
+
+Pass 2 takes the entire Pass 1 JSON output and injects
+it as context into a second prompt. We tell Gemini —
+here is what you observed. Now act as a personal
+speaking coach and build a detailed improvement plan
+based specifically on these findings.
 
 Because Pass 2 has Pass 1's analysis as its starting
 point, the coaching is grounded in what was actually
-observed. It returns detailed tip cards with titles,
-explanations, exercises, and better phrasing examples.
-It returns vocal control data with current versus target
-WPM, tone feedback, breath control, and pause technique.
-It returns strengths to keep and a seven-day practice plan.
+observed. It cannot hallucinate generic advice.
+It returns detailed tip cards, vocal control data,
+strengths to keep, and a seven-day practice plan.
 
-[POINT to Tips and Vocal Control tabs]
+[SCROLL to Pass 3 section]
 
-The Tips and Vocal Control tabs are entirely Pass 2 output.
+Pass 3 is the gesture analysis pass — it only runs
+for Google Drive videos where MediaPipe cannot run
+client-side, since the video never reaches the browser.
 
-The key insight is that Pass 2 cannot hallucinate generic
-advice — it is forced to respond to what Pass 1 actually
-found. That's what makes the output genuinely useful.
+Because the video file is already uploaded and ACTIVE
+in the Gemini File API from Pass 1, Pass 3 re-uses the
+same file URI. There is zero extra upload cost.
+
+We send a prompt asking Gemini to analyze hand gestures
+at three-second intervals and return a JSON array where
+each entry has a second, a gesture label, and a hand
+count. The gesture labels match exactly what MediaPipe
+uses for local recordings — so the report looks
+identical regardless of how the video was submitted.
+
+[POINT to the gesture prompt text in the file]
+
+After Pass 3, we delete the uploaded file from the
+Gemini File API and return all three results to the
+controller.
+
+The key insight across all three passes: each pass
+uses what came before. Pass 2 is better because it
+has Pass 1. Pass 3 re-uses the already-processed file.
+Every decision in this pipeline was made to maximize
+quality without paying unnecessary latency costs.
 
 ─────────────────────────────────────────────────────────
 SLIDE 9 — Google Analytics
@@ -519,37 +646,35 @@ the single-page app is tracked as a separate page view.
 We fire custom events at every meaningful user action.
 Login events when OAuth completes. session_submitted
 when a user clicks Analyze. session_complete when
-analysis finishes. And report_tab_viewed with the tab
-name every time a user switches tabs on the report.
+analysis finishes. report_tab_viewed with the tab
+name every time a user switches tabs on the report —
+including the new Emotion Timeline and Gestures tabs.
 
 [OPEN: analytics.google.com → Reports → Realtime]
 
 This is the GA4 Realtime dashboard. It shows active
-users right now and which events are firing. If we
-use the app while this is open, events appear here
-in real time.
+users right now and which events are firing.
 
 [OPEN: Reports → Engagement → Events]
 
-The Events report shows every custom event we've
-tracked, how many times it fired, and how many unique
-users triggered it. session_submitted and
-session_complete together tell us our completion rate.
-report_tab_viewed tells us which parts of the report
-users actually read.
+The Events report shows every custom event — how many
+times it fired and how many unique users triggered it.
+session_submitted and session_complete together give
+us our pipeline completion rate. report_tab_viewed
+tells us which parts of the report users actually read.
 
 Now for the backend analytics. We built an analytics
 service on the Express server that uses the GA4
-Measurement Protocol — a special HTTP API that lets
-your server send events directly to Google Analytics
+Measurement Protocol — an HTTP API that lets the
+server send events directly to Google Analytics
 independent of any browser.
 
-We fire two server-side events. A login event right
-after the JWT is issued — confirming the OAuth flow
-completed on the backend. And a session_analyzed event
-after the Firestore write — including the overall score,
-language, mode, dominant emotion from Cloud Vision,
-and the number of emotion frames detected.
+We fire two server-side events. A login event after
+the JWT is issued. And a session_analyzed event after
+the Firestore write — including the overall score,
+language, mode, source (local or Google Drive),
+dominant emotion from Cloud Vision, and the number
+of emotion frames detected.
 
 This means even if a user closes their browser before
 the result loads, we still have a full server-side
@@ -569,40 +694,44 @@ with a timestamp and severity level.
 
 We follow a strict naming convention — every log
 statement starts with a module name in square brackets.
-This makes filtering trivial.
 
 [OPEN: console.cloud.google.com → Cloud Run → vocaliq → Logs]
 
-Here is the live log stream. Let me filter by
-the coaching prefix.
+Here is the live log stream. Let me filter by prefix.
 
 [TYPE: [coaching] in the filter]
 
-You can see every analysis — when it started,
-which user, which mode, and when it completed.
+You can see every analysis — when it started, which
+user, which mode, whether the source was a local file
+or Google Drive, when frames were extracted, and when
+the session was saved.
+
+[CHANGE filter to: [gemini]]
+
+Here are the Gemini logs — upload complete, Pass 1
+running, Pass 1 complete with score, Pass 2 running,
+Pass 2 complete, and for Drive uploads, Pass 3 gesture
+analysis running and the gesture count returned.
 
 [CHANGE filter to: [vision]]
 
-Here are the Cloud Vision logs — how many frames
-were received, how many were processed, and the
-emotion summary that was built.
+Here are the Cloud Vision logs — how many frames were
+received, how many were processed, and the emotion
+summary: dominant emotion, eye contact percentage,
+and nervous versus confident seconds.
 
-[CHANGE filter to: [photos]]
+[CHANGE filter to: [frameExtractor]]
 
-Here are the Google Drive logs — when videos were
-fetched, which files were listed, and when videos
-were downloaded.
+Here are the frame extraction logs — for Drive videos
+you can see the server-side ffmpeg extraction: how many
+frames were extracted and at what interval.
 
 [OPEN: console.cloud.google.com → Logging → Logs Explorer]
 
-For advanced querying, the Logs Explorer lets us
-write structured queries. For example, filtering to
-error-level logs only helps us quickly find any
-failures across the entire pipeline.
-
-This setup gives us full observability from the
-moment a user submits a video to the moment
-their session is saved.
+For advanced querying, the Logs Explorer lets us write
+structured queries — filtering to error-level logs
+only, or correlating a specific session ID across all
+modules in a single search.
 
 ─────────────────────────────────────────────────────────
 SLIDE 11 — Summary
@@ -614,60 +743,72 @@ Let me start with the notable challenges we overcame.
 
 The first was the Google Photos Library API deprecation.
 We originally implemented the social media video picker
-using the Google Photos Library API with the
-photoslibrary.readonly scope. During testing we
-discovered that Google deprecated this scope for
-projects created after May 2024. Our Cloud Run project
-was new enough to be affected. We diagnosed this by
-reading the API error logs, confirmed it via token
-introspection, and switched to the Google Drive API —
-which provides the same video browsing functionality
-and is fully available for new projects.
+using the Google Photos Library API. During testing we
+discovered Google deprecated that scope for projects
+created after May 2024. We diagnosed it via token
+introspection and API error logs, then switched to
+the Google Drive API — which provides identical
+functionality and is fully available for new projects.
 
-The second challenge was integrating Cloud Vision
-without adding latency to the user experience. The
-Gemini pipeline already takes 30 to 90 seconds.
-We solved this by running Cloud Vision in parallel
-with Gemini using Promise.all — both pipelines
-start simultaneously, so the total analysis time
-does not increase.
+The second was the Cloud Run 32 megabyte response limit.
+When users tried to analyze large Google Drive videos —
+we tested a 116 megabyte MOV file — the server could not
+proxy that video to the client without hitting the hard
+response size limit. We went through three approaches:
+streaming the file, returning a download URL for the
+client to fetch directly — which hit CORS restrictions
+— and finally the solution we use now: the server
+downloads from Drive directly, runs the entire Gemini
+and Vision pipeline, and returns only the JSON session
+ID. The large video never touches the browser.
 
-The third was an Express 5 breaking change that
-caused startup crashes until we replaced the
-wildcard route syntax.
+The third was memory pressure on Cloud Run. Processing
+a 116 megabyte video in memory — plus a Gemini file
+upload, a GCS upload, ffmpeg frame extraction, and
+Cloud Vision batch calls all running concurrently —
+exceeded the default 1 gigabyte Cloud Run limit. We
+increased the service to 2 gigabytes with 2 vCPUs,
+and restructured the pipeline to run all operations
+in parallel using Promise.all so the additional passes
+add minimal wall-clock time.
 
-The fourth was Application Default Credentials —
-our code tried to load a key file that doesn't
-exist on Cloud Run, crashing the server until
-we added the conditional fallback.
+The fourth was hand gesture detection across both
+recording modes. For locally recorded videos,
+MediaPipe runs client-side with no server cost.
+For Drive videos, we added a third Gemini pass that
+reuses the already-uploaded file URI — so gesture
+analysis for Drive videos costs exactly one extra
+API call with zero re-upload overhead.
 
-Looking ahead, the most impactful next steps for
-VocalIQ would be a progress tracking chart showing
-score improvement across sessions over time, real-time
-feedback during recording using WebSockets, and a
-mobile-optimized recording experience.
+Looking ahead, the most impactful next steps would be
+a progress tracking chart showing score improvement
+across sessions over time, real-time feedback during
+recording using WebSockets, and a mobile-optimized
+recording experience.
 
-What we learned from building this project:
+What we learned:
 
 Chaining AI prompts dramatically improves quality.
 Pass 2 is far more specific than any single-prompt
 approach because it is grounded in Pass 1's findings.
 
-API deprecations are a real-world engineering concern.
-You can have correct code, correct tokens, and correct
-scopes — and still have a feature fail because the API
-itself was restricted. Knowing how to read error logs,
-introspect tokens, and find alternative approaches is
-an essential engineering skill.
+Running analyses in parallel with Promise.all is
+critical for user experience. Cloud Vision, frame
+extraction, GCS upload, and Gemini all run concurrently
+— so the total time is the longest individual step, not
+the sum of all steps.
 
-Cloud Run with Application Default Credentials is the
-correct pattern for server-side Google API access.
-Never put service account key files in Docker images.
+API deprecations are a real engineering concern. Correct
+code, correct tokens, correct scopes — and still a broken
+feature because the API itself changed. Knowing how to
+read error logs, introspect tokens, and pivot to
+alternatives is essential.
 
-And the GA4 Measurement Protocol is a powerful tool
-most developers skip — server-side event tracking
-gives a far more accurate picture of user behavior
-than frontend analytics alone.
+And server-side analytics via the GA4 Measurement
+Protocol gives a far more accurate picture than
+frontend tracking alone — especially for long async
+operations like AI analysis where the user may
+close their browser before results load.
 
 Thank you to Professor Lynne Grewe for the guidance
 throughout this project. We hope VocalIQ demonstrates
