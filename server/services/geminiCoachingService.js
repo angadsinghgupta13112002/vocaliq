@@ -133,9 +133,42 @@ Provide a detailed, personalized coaching plan. Return ONLY valid JSON with no e
 }
 `;
 
-// ─── Analyze Video (uses Gemini File API) ───────────────────────────────────
-const analyzeVideoWithGemini = async (videoBuffer, mimeType, context) => {
-  const { scenario = "General presentation", audience = "General audience", goal = "Communicate effectively" } = context;
+// ─── Pass 3 Prompt: Gesture Analysis ────────────────────────────────────────
+// Used for Drive-sourced videos where client-side MediaPipe cannot run.
+// Gemini inspects the already-uploaded file — no extra upload cost.
+const GESTURE_ANALYSIS_PROMPT = `
+Analyze the speaker's hand gestures in this video recording.
+For every 3 seconds of video (0, 3, 6, 9 … up to the end), identify the dominant hand gesture.
+
+Use ONLY these exact gesture labels:
+- open_hand    : fingers spread open, palm clearly visible
+- pointing     : index finger extended toward camera or to one side
+- peace        : two fingers up (V sign / peace sign)
+- thumbs_up    : thumb pointing upward
+- fist         : closed fist, all fingers curled in
+- partial_open : some fingers extended but not a fully open hand
+- neutral_hand : relaxed hand at rest, not actively gesturing
+- no_hands     : hands not visible or out of frame
+
+Return ONLY a valid JSON array with no surrounding text or markdown:
+[
+  { "second": 0,  "gesture": "open_hand",   "handsCount": 2 },
+  { "second": 3,  "gesture": "pointing",    "handsCount": 1 },
+  { "second": 6,  "gesture": "no_hands",    "handsCount": 0 }
+]
+Include one entry per 3-second interval. Use handsCount 0 when no hands are visible.
+`;
+
+// ─── Analyze Video (uses Gemini File API) ────────────────────────────────────
+// options.includeGestures = true  → adds a third Gemini pass for gesture analysis.
+// Used by the Drive upload flow where client-side MediaPipe cannot run.
+const analyzeVideoWithGemini = async (videoBuffer, mimeType, context, options = {}) => {
+  const {
+    scenario = "General presentation",
+    audience = "General audience",
+    goal     = "Communicate effectively",
+  } = context;
+  const { includeGestures = false } = options;
 
   console.log("[gemini] Uploading video to Gemini File API...");
   const geminiFile = await uploadVideoToGemini(videoBuffer, mimeType);
@@ -164,10 +197,36 @@ const analyzeVideoWithGemini = async (videoBuffer, mimeType, context) => {
   const pass2 = safeParseGemini(pass2Result.response.text(), "Pass 2 (video)");
   console.log("[gemini] Pass 2 complete.");
 
-  // Clean up the Gemini file (auto-expires in 48h but good practice)
+  // ── Optional Pass 3: Gesture analysis (Drive uploads only) ──────────────
+  let gestureTimeline = [];
+  if (includeGestures) {
+    console.log("[gemini] Running Pass 3: gesture analysis...");
+    try {
+      const pass3Result = await model.generateContent({
+        contents: [{
+          role: "user",
+          parts: [
+            { text: GESTURE_ANALYSIS_PROMPT },
+            { fileData: { mimeType: geminiFile.mimeType, fileUri: geminiFile.uri } },
+          ],
+        }],
+        generationConfig: { responseMimeType: "application/json" },
+      });
+      const raw = pass3Result.response.text();
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        gestureTimeline = parsed;
+        console.log(`[gemini] Pass 3 complete: ${gestureTimeline.length} gesture entries`);
+      }
+    } catch (err) {
+      console.warn("[gemini] Pass 3 gesture analysis failed (non-fatal):", err.message);
+    }
+  }
+
+  // Clean up the Gemini file (auto-expires in 48 h but good practice)
   try { await fileManager.deleteFile(geminiFile.name); } catch (_) {}
 
-  return { pass1, pass2 };
+  return { pass1, pass2, gestureTimeline };
 };
 
 // ─── Analyze Audio (base64 inlineData — audio files are small enough) ───────

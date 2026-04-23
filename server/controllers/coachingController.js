@@ -12,6 +12,7 @@ const { sendServerEvent }                                = require("../services/
 const { analyzeFrames, summarizeEmotionTimeline }        = require("../services/visionService");
 const { summarizeGestureTimeline }                       = require("../services/gestureService");
 const { refreshGoogleToken }                             = require("../services/oauthService");
+const { extractFramesFromBuffer }                        = require("../utils/serverFrameExtractor");
 
 // ─── POST /api/coaching/analyze ─────────────────────────────────────────────
 // Accepts a video or audio file + context fields + optional JSON frames array.
@@ -246,15 +247,39 @@ const analyzeFromDrive = async (req, res) => {
   const mimeType = { mov: "video/quicktime", mp4: "video/mp4", webm: "video/webm", avi: "video/x-msvideo" }[ext] || "video/mp4";
 
   const context = { scenario, audience, goal };
-
-  // Run GCS upload + Gemini analysis in parallel (same as regular analyzeSession)
   const fakeFile = { buffer: videoBuffer, mimetype: mimeType, originalname: filename };
-  const [mediaUrl, analysisResult] = await Promise.all([
+
+  // ── Run everything in parallel ───────────────────────────────────────────
+  // 1. GCS upload   — streams buffer to Cloud Storage
+  // 2. Gemini       — Pass 1 + Pass 2 (speech/delivery) + Pass 3 (gestures)
+  // 3. Vision chain — ffmpeg extracts frames → Cloud Vision face/emotion detection
+  //
+  // Frame extraction + Vision run concurrently with Gemini so they add
+  // near-zero extra wall-clock time (Gemini is always the bottleneck).
+
+  const visionChainPromise = extractFramesFromBuffer(videoBuffer, mimeType, 3, 20)
+    .then(frames => {
+      if (frames.length === 0) return [];
+      console.log(`[coaching] Drive frames extracted: ${frames.length} — running Vision...`);
+      return analyzeFrames(frames);
+    })
+    .catch(err => {
+      console.warn("[coaching] Vision chain failed (non-fatal):", err.message);
+      return [];
+    });
+
+  const [mediaUrl, analysisResult, emotionTimeline] = await Promise.all([
     uploadVideo(fakeFile, uid),
-    analyzeVideoWithGemini(videoBuffer, mimeType, context),
+    analyzeVideoWithGemini(videoBuffer, mimeType, context, { includeGestures: true }),
+    visionChainPromise,
   ]);
 
-  const { pass1, pass2 } = analysisResult;
+  const { pass1, pass2, gestureTimeline } = analysisResult;
+  const emotionSummary = summarizeEmotionTimeline(emotionTimeline);
+  const gestureSummary = summarizeGestureTimeline(gestureTimeline);
+
+  console.log(`[coaching] Drive analysis done — emotion: ${emotionSummary.dominantEmotion}, dominant gesture: ${gestureSummary.dominantGesture}`);
+
   const sessionId = `${uid}_${Date.now()}`;
 
   const sessionData = {
@@ -276,12 +301,10 @@ const analyzeFromDrive = async (req, res) => {
     vocalControl:       pass2.vocalControl     || {},
     strengthsToKeep:    pass2.strengthsToKeep  || [],
     practicePlan:       pass2.practicePlan     || "",
-    // Emotion / gesture timelines are skipped for Drive uploads
-    // (client-side frame extraction is not possible without downloading the video)
-    emotionTimeline:    [],
-    emotionSummary:     {},
-    gestureTimeline:    [],
-    gestureSummary:     {},
+    emotionTimeline,
+    emotionSummary,
+    gestureTimeline,
+    gestureSummary,
     createdAt:          new Date(),
   };
 

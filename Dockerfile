@@ -14,6 +14,8 @@ RUN npm run build
 # ── Stage 2: Production Express server ───────────────────────
 FROM node:20-alpine AS production
 WORKDIR /app
+# ffmpeg is required for server-side video frame extraction (emotion timeline on Drive uploads)
+RUN apk add --no-cache ffmpeg
 COPY server/package*.json ./
 RUN npm ci --only=production --silent
 COPY server/ ./
