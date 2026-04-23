@@ -78,38 +78,26 @@ const downloadVideo = async (req, res) => {
 
     let { accessToken, refreshToken } = await getPhotosTokens(uid);
 
-    // Open a streaming request to Google Drive — no memory buffering
-    let driveStream;
+    // Validate the token with a lightweight Drive API call and refresh if expired.
+    // We do NOT proxy the video through Cloud Run — Cloud Run has a 32 MB response
+    // size limit and large videos (e.g. 116 MB .mov) get truncated.
+    // Instead, we return the download URL + a fresh access token so the client
+    // can download directly from Google Drive, bypassing Cloud Run entirely.
     try {
-      driveStream = await streamVideoDownload(videoUrl, accessToken);
+      await axios.get("https://www.googleapis.com/drive/v3/about?fields=user", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 10000,
+      });
     } catch (err) {
-      if (!err.isTokenExpired) throw err;
-      // Access token expired — refresh and retry once
-      accessToken  = await rotateToken(uid, refreshToken);
-      driveStream  = await streamVideoDownload(videoUrl, accessToken);
+      if (err.response?.status === 401) {
+        accessToken = await rotateToken(uid, refreshToken);
+      }
+      // Any other error (e.g. network) — proceed with current token and let
+      // the client handle a potential 401 from Drive directly
     }
 
-    // Pass through real content-type and length from Drive
-    // (handles .mov = video/quicktime, .mp4 = video/mp4, etc.)
-    const contentType   = driveStream.headers["content-type"]   || "video/mp4";
-    const contentLength = driveStream.headers["content-length"];
-    res.set("Content-Type",        contentType);
-    res.set("Content-Disposition", "attachment; filename=\"video.mov\"");
-    if (contentLength) res.set("Content-Length", contentLength);
-
-    // Pipe Google Drive's response stream directly to the client —
-    // never loads the whole file into memory
-    driveStream.data.pipe(res);
-
-    // If the drive stream errors mid-pipe, close the response gracefully
-    driveStream.data.on("error", (streamErr) => {
-      console.error("[photos] Drive stream error:", streamErr.message);
-      if (!res.headersSent) {
-        res.status(500).json({ success: false, error: "Drive stream interrupted" });
-      } else {
-        res.end();
-      }
-    });
+    console.log(`[photos] Returning direct download URL to client for ${videoUrl}`);
+    res.json({ success: true, downloadUrl: videoUrl, accessToken });
   } catch (err) {
     const status = err.message.includes("not connected") || err.message.includes("reconnect") ? 403 : 500;
     res.status(status).json({ success: false, error: err.message });
