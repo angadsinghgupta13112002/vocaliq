@@ -56,17 +56,37 @@ export const connectGooglePhotos = () => {
 export const listPhotosVideos = () => api.get("/photos/videos");
 
 /**
- * downloadPhotosVideo — downloads a Google Photos video as a Blob.
- * @param {string} videoUrl — the =dv URL returned by listPhotosVideos
+ * downloadPhotosVideo — downloads a Google Drive video as a Blob.
+ * Uses responseType "blob" so large files stream from server to browser
+ * without blocking. On error, parses the blob body to surface the real
+ * server error message instead of a generic fallback.
+ *
+ * @param {string} videoUrl — the Drive ?alt=media URL returned by listPhotosVideos
  * @returns {Blob} video blob suitable for creating a File object
  */
 export const downloadPhotosVideo = async (videoUrl) => {
-  const res = await api.post(
-    "/photos/download",
-    { videoUrl },
-    { responseType: "blob", timeout: 300000 }
-  );
-  return res.data; // Blob
+  try {
+    const res = await api.post(
+      "/photos/download",
+      { videoUrl },
+      { responseType: "blob", timeout: 300000 }
+    );
+    return res.data; // Blob
+  } catch (err) {
+    // When responseType:"blob", axios gives us the error body as a Blob.
+    // Read it as text so we can surface the real server error message.
+    if (err.response?.data instanceof Blob) {
+      try {
+        const text    = await err.response.data.text();
+        const payload = JSON.parse(text);
+        const message = payload?.error || "Failed to download from Google Drive";
+        throw new Error(message);
+      } catch (parseErr) {
+        if (parseErr.message !== "Failed to download from Google Drive") throw parseErr;
+      }
+    }
+    throw err;
+  }
 };
 
 export default api;

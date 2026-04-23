@@ -5,7 +5,7 @@
  * Author: Angaddeep Singh Gupta | CS651 Project 2
  */
 const { db }                                 = require("../config/firebase");
-const { getUserVideos, downloadVideoBuffer } = require("../services/googlePhotosService");
+const { getUserVideos, streamVideoDownload } = require("../services/googlePhotosService");
 const { refreshGoogleToken }                 = require("../services/oauthService");
 
 // Helper: retrieve both tokens for the current user from Firestore
@@ -78,23 +78,38 @@ const downloadVideo = async (req, res) => {
 
     let { accessToken, refreshToken } = await getPhotosTokens(uid);
 
-    let buffer;
+    // Open a streaming request to Google Drive — no memory buffering
+    let driveStream;
     try {
-      buffer = await downloadVideoBuffer(videoUrl, accessToken);
+      driveStream = await streamVideoDownload(videoUrl, accessToken);
     } catch (err) {
       if (!err.isTokenExpired) throw err;
       // Access token expired — refresh and retry once
-      accessToken = await rotateToken(uid, refreshToken);
-      buffer      = await downloadVideoBuffer(videoUrl, accessToken);
+      accessToken  = await rotateToken(uid, refreshToken);
+      driveStream  = await streamVideoDownload(videoUrl, accessToken);
     }
 
-    // Return as video/mp4 — the coaching controller accepts this MIME type
-    res.set({
-      "Content-Type":        "video/mp4",
-      "Content-Length":      buffer.length,
-      "Content-Disposition": "attachment; filename=\"photos_video.mp4\"",
+    // Pass through real content-type and length from Drive
+    // (handles .mov = video/quicktime, .mp4 = video/mp4, etc.)
+    const contentType   = driveStream.headers["content-type"]   || "video/mp4";
+    const contentLength = driveStream.headers["content-length"];
+    res.set("Content-Type",        contentType);
+    res.set("Content-Disposition", "attachment; filename=\"video.mov\"");
+    if (contentLength) res.set("Content-Length", contentLength);
+
+    // Pipe Google Drive's response stream directly to the client —
+    // never loads the whole file into memory
+    driveStream.data.pipe(res);
+
+    // If the drive stream errors mid-pipe, close the response gracefully
+    driveStream.data.on("error", (streamErr) => {
+      console.error("[photos] Drive stream error:", streamErr.message);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, error: "Drive stream interrupted" });
+      } else {
+        res.end();
+      }
     });
-    res.send(buffer);
   } catch (err) {
     const status = err.message.includes("not connected") || err.message.includes("reconnect") ? 403 : 500;
     res.status(status).json({ success: false, error: err.message });

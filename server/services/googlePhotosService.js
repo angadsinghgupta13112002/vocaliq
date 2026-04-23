@@ -57,34 +57,33 @@ const getUserVideos = async (accessToken) => {
 };
 
 /**
- * downloadVideoBuffer - Downloads a Google Drive video as a Buffer.
- * Used to pass the video to the Gemini and Cloud Vision analysis pipeline.
+ * streamVideoDownload - Opens a streaming GET request to Google Drive.
+ * Returns the raw axios response so the controller can pipe it directly
+ * to the client — no buffering, no memory spike for large files.
  *
  * @param {string} videoUrl    - Drive file download URL (with ?alt=media)
  * @param {string} accessToken - Google OAuth access token with drive.readonly scope
- * @returns {Buffer} - Video file as a Node.js Buffer
+ * @returns {AxiosResponse}    - Streaming response (response.data is a Readable)
  */
-const downloadVideoBuffer = async (videoUrl, accessToken) => {
+const streamVideoDownload = async (videoUrl, accessToken) => {
   try {
-    console.log("[photos] Downloading video from Google Drive...");
+    console.log("[photos] Opening streaming download from Google Drive...");
     const res = await axios.get(videoUrl, {
-      responseType: "arraybuffer",
+      responseType: "stream",
       headers:      { Authorization: `Bearer ${accessToken}` },
       timeout:      300000, // 5 min for large videos
     });
-    console.log(`[photos] Video downloaded — size: ${res.data.byteLength} bytes`);
-    return Buffer.from(res.data);
+    console.log(`[photos] Stream opened — content-type: ${res.headers["content-type"]}, size: ${res.headers["content-length"] || "unknown"} bytes`);
+    return res;
   } catch (err) {
-    // Distinguish auth failures (expired token) from other errors
-    // so the controller can refresh the token and retry
     if (err.response?.status === 401) {
-      const authErr  = new Error("Drive access token expired");
+      const authErr = new Error("Drive access token expired");
       authErr.isTokenExpired = true;
       throw authErr;
     }
-    console.error("[photos] downloadVideoBuffer error:", err.message);
-    throw new Error("Failed to download video from Google Drive.");
+    console.error("[photos] streamVideoDownload error:", err.message);
+    throw new Error(`Failed to download video from Google Drive: ${err.message}`);
   }
 };
 
-module.exports = { getUserVideos, downloadVideoBuffer };
+module.exports = { getUserVideos, streamVideoDownload };

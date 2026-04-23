@@ -40,13 +40,16 @@ const CoachingSession = () => {
     const downloadToast = toast.loading(`Downloading "${filename}" from Google Photos…`);
     try {
       const videoBlob = await downloadPhotosVideo(videoUrl);
-      // Create a File object so it behaves identically to a local file upload
-      const videoFile = new File([videoBlob], filename || "photos_video.mp4", { type: "video/mp4" });
+      // Preserve real MIME type from the blob (e.g. video/quicktime for .mov)
+      // so the coaching pipeline receives the correct content-type
+      const mimeType  = videoBlob.type || "video/mp4";
+      const videoFile = new File([videoBlob], filename || "video.mp4", { type: mimeType });
       setFile(videoFile);
       setPhotosVideoName(filename);
       toast.success("Video ready for analysis!", { id: downloadToast });
     } catch (err) {
-      toast.error(err.response?.data?.error || "Failed to download from Google Photos.", { id: downloadToast });
+      // err.message is now the real server error (token expired, reconnect, etc.)
+      toast.error(err.message || "Failed to download from Google Drive.", { id: downloadToast });
     }
   };
 
