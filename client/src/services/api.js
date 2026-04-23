@@ -27,6 +27,18 @@ export const analyzeSession = (formData) =>
     timeout: 300000, // 5 min — Gemini File API + two-pass + Vision can take 2–3 min
   });
 
+// analyzeSessionFromDrive — server downloads from Drive and runs full analysis.
+// Used for large Drive videos to bypass Cloud Run's 32 MB response limit and
+// browser CORS restrictions on direct Google Drive downloads.
+export const analyzeSessionFromDrive = (driveVideoUrl, filename, context) =>
+  api.post("/coaching/analyze-from-drive", {
+    driveVideoUrl,
+    filename,
+    scenario: context.scenario || "General presentation",
+    audience: context.audience || "General audience",
+    goal:     context.goal     || "Communicate effectively",
+  }, { timeout: 300000 });
+
 export const getSessions  = ()     => api.get("/coaching/sessions");
 export const getSession   = (id)   => api.get(`/coaching/sessions/${id}`);
 

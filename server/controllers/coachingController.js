@@ -4,12 +4,14 @@
  * runs Cloud Vision face detection in parallel (for emotion timeline),
  * saves results to Firestore coaching_sessions, and returns the full report.
  */
+const axios                                              = require("axios");
 const { analyzeVideoWithGemini, analyzeAudioWithGemini } = require("../services/geminiCoachingService");
 const { uploadVideo, uploadAudio }                       = require("../services/storageService");
 const { setDocument, queryCollection, getDocument }      = require("../services/firestoreService");
 const { sendServerEvent }                                = require("../services/analyticsService");
 const { analyzeFrames, summarizeEmotionTimeline }        = require("../services/visionService");
 const { summarizeGestureTimeline }                       = require("../services/gestureService");
+const { refreshGoogleToken }                             = require("../services/oauthService");
 
 // ─── POST /api/coaching/analyze ─────────────────────────────────────────────
 // Accepts a video or audio file + context fields + optional JSON frames array.
@@ -186,4 +188,113 @@ const getSession = async (req, res) => {
   }
 };
 
-module.exports = { analyzeSession, getSessions, getSession };
+// ─── POST /api/coaching/analyze-from-drive ──────────────────────────────────
+// Handles videos selected from Google Drive. Instead of proxying the video
+// through the browser (which hits Cloud Run's 32 MB response limit and CORS
+// issues), the server downloads it directly from Drive and runs the full
+// Gemini analysis pipeline. The large file never touches the client.
+//
+// Body: { driveVideoUrl, filename, scenario, audience, goal }
+const analyzeFromDrive = async (req, res) => {
+  const { uid } = req.user;
+  const {
+    driveVideoUrl,
+    filename  = "drive_video.mp4",
+    scenario  = "General presentation",
+    audience  = "General audience",
+    goal      = "Communicate effectively",
+  } = req.body;
+
+  if (!driveVideoUrl?.startsWith("https://www.googleapis.com/drive/v3/files/")) {
+    return res.status(400).json({ success: false, error: "Invalid Google Drive URL" });
+  }
+
+  // Retrieve stored Drive tokens for this user
+  const userDoc = await getDocument("users", uid);
+  if (!userDoc?.photosAccessToken) {
+    return res.status(403).json({ success: false, error: "Google Drive not connected" });
+  }
+  let accessToken = userDoc.photosAccessToken;
+
+  // Download the video from Drive (server-to-server — no 32 MB Cloud Run limit)
+  const downloadFromDrive = async (token) => {
+    const resp = await axios.get(driveVideoUrl, {
+      responseType: "arraybuffer",
+      headers:      { Authorization: `Bearer ${token}` },
+      timeout:      300000,
+    });
+    return Buffer.from(resp.data);
+  };
+
+  let videoBuffer;
+  try {
+    videoBuffer = await downloadFromDrive(accessToken);
+  } catch (err) {
+    if (err.response?.status === 401 && userDoc.photosRefreshToken) {
+      accessToken = await refreshGoogleToken(userDoc.photosRefreshToken);
+      await setDocument("users", uid, { photosAccessToken: accessToken });
+      videoBuffer = await downloadFromDrive(accessToken);
+    } else {
+      throw new Error("Failed to download video from Google Drive: " + err.message);
+    }
+  }
+
+  console.log(`[coaching] Drive download complete — ${(videoBuffer.length / 1024 / 1024).toFixed(1)} MB`);
+
+  // Detect MIME type from filename extension
+  const ext = filename.split(".").pop()?.toLowerCase();
+  const mimeType = { mov: "video/quicktime", mp4: "video/mp4", webm: "video/webm", avi: "video/x-msvideo" }[ext] || "video/mp4";
+
+  const context = { scenario, audience, goal };
+
+  // Run GCS upload + Gemini analysis in parallel (same as regular analyzeSession)
+  const fakeFile = { buffer: videoBuffer, mimetype: mimeType, originalname: filename };
+  const [mediaUrl, analysisResult] = await Promise.all([
+    uploadVideo(fakeFile, uid),
+    analyzeVideoWithGemini(videoBuffer, mimeType, context),
+  ]);
+
+  const { pass1, pass2 } = analysisResult;
+  const sessionId = `${uid}_${Date.now()}`;
+
+  const sessionData = {
+    userId:             uid,
+    sessionId,
+    mediaUrl,
+    mode:               "video",
+    context,
+    language:           pass1.language,
+    overallScore:       pass1.overallScore,
+    scoreBreakdown:     pass1.scoreBreakdown,
+    scoreJustification: pass1.scoreJustification,
+    emotionDetected:    pass1.emotionDetected,
+    emotionNeeded:      pass1.emotionNeeded,
+    wpm:                pass1.wpm,
+    transcript:         pass1.transcript       || [],
+    improvementTips:    pass1.improvementTips  || [],
+    detailedTips:       pass2.detailedTips     || [],
+    vocalControl:       pass2.vocalControl     || {},
+    strengthsToKeep:    pass2.strengthsToKeep  || [],
+    practicePlan:       pass2.practicePlan     || "",
+    // Emotion / gesture timelines are skipped for Drive uploads
+    // (client-side frame extraction is not possible without downloading the video)
+    emotionTimeline:    [],
+    emotionSummary:     {},
+    gestureTimeline:    [],
+    gestureSummary:     {},
+    createdAt:          new Date(),
+  };
+
+  await setDocument("coaching_sessions", sessionId, sessionData);
+  console.log(`[coaching] Drive session saved: ${sessionId}`);
+
+  sendServerEvent(uid, "session_analyzed", {
+    mode: "video", scenario, source: "google_drive",
+    language: pass1.language || "unknown",
+    overall_score: pass1.overallScore || 0,
+  });
+
+  res.json({ success: true, sessionId, message: "Analysis complete" });
+};
+
+module.exports = { analyzeSession, getSessions, getSession, analyzeFromDrive };

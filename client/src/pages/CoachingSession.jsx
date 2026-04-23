@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import Navbar from "../components/Navbar";
 import VideoRecorder from "../components/VideoRecorder";
 import GooglePhotosPicker from "../components/GooglePhotosPicker";
-import { analyzeSession, downloadPhotosVideo } from "../services/api";
+import { analyzeSession, analyzeSessionFromDrive, downloadPhotosVideo } from "../services/api";
 import { extractFrames }    from "../utils/frameExtractor";
 import { extractGestures }  from "../utils/gestureExtractor";
 import { trackEvent } from "../utils/analytics";
@@ -28,29 +28,23 @@ const CoachingSession = () => {
 
   const [blob,              setBlob]              = useState(null);
   const [file,              setFile]              = useState(null); // for local upload
+  const [driveVideoUrl,     setDriveVideoUrl]     = useState(null); // Drive URL (server-side analysis)
   const [analyzing,         setAnalyzing]         = useState(false);
   const [stepIdx,           setStepIdx]           = useState(0);
   const [showPhotosPicker,  setShowPhotosPicker]  = useState(false);
-  const [photosVideoName,   setPhotosVideoName]   = useState(null); // name of selected photos video
+  const [photosVideoName,   setPhotosVideoName]   = useState(null);
   const stepTimer = useRef(null);
 
-  // Called when user picks a video from the Google Photos picker
-  const handlePhotosVideoSelected = async ({ videoUrl, filename }) => {
+  // Called when user picks a video from the Google Drive picker.
+  // We store the Drive URL and let the SERVER download it during analysis —
+  // this avoids Cloud Run's 32 MB response limit and browser CORS restrictions.
+  const handlePhotosVideoSelected = ({ videoUrl, filename }) => {
     setShowPhotosPicker(false);
-    const downloadToast = toast.loading(`Downloading "${filename}" from Google Photos…`);
-    try {
-      const videoBlob = await downloadPhotosVideo(videoUrl);
-      // Preserve real MIME type from the blob (e.g. video/quicktime for .mov)
-      // so the coaching pipeline receives the correct content-type
-      const mimeType  = videoBlob.type || "video/mp4";
-      const videoFile = new File([videoBlob], filename || "video.mp4", { type: mimeType });
-      setFile(videoFile);
-      setPhotosVideoName(filename);
-      toast.success("Video ready for analysis!", { id: downloadToast });
-    } catch (err) {
-      // err.message is now the real server error (token expired, reconnect, etc.)
-      toast.error(err.message || "Failed to download from Google Drive.", { id: downloadToast });
-    }
+    setDriveVideoUrl(videoUrl);
+    setPhotosVideoName(filename);
+    // Set a placeholder File so the submit button activates and filename shows
+    setFile(new File([], filename || "drive_video.mp4", { type: "video/mp4" }));
+    toast.success(`"${filename}" selected — ready to analyze!`);
   };
 
   const handleSubmit = async () => {
@@ -61,14 +55,25 @@ const CoachingSession = () => {
     setStepIdx(0);
     trackEvent("session_submitted", { mode, scenario: context.scenario || "General" });
 
-    // Fake progress steps (each ~12 seconds) while API runs
     stepTimer.current = setInterval(() => {
       setStepIdx(i => (i < STEPS.length - 1 ? i + 1 : i));
     }, 12000);
 
     try {
-      // ── Step 1 & 2: Extract frames (Cloud Vision) + gestures (MediaPipe) ─
-      // Both run client-side on video modes only, in parallel for speed.
+      // ── Google Drive video: server downloads + analyzes directly ──────
+      // Bypasses Cloud Run 32 MB limit and browser CORS restrictions.
+      if (driveVideoUrl) {
+        const res = await analyzeSessionFromDrive(driveVideoUrl, photosVideoName, context);
+        clearInterval(stepTimer.current);
+        if (res.data.success) {
+          trackEvent("session_complete", { mode: "video", source: "drive", scenario: context.scenario || "General" });
+          toast.success("Analysis complete!");
+          navigate(`/report/${res.data.sessionId}`);
+        }
+        return;
+      }
+
+      // ── Local / recorded video: client-side frame extraction + upload ─
       let framesJson   = null;
       let gesturesJson = null;
 
@@ -77,26 +82,14 @@ const CoachingSession = () => {
           extractFrames(mediaBlob, 3, 20, 0.7),
           extractGestures(mediaBlob, 3, 20),
         ]);
-
-        if (frames.status === "fulfilled" && frames.value.length > 0) {
-          framesJson = JSON.stringify(frames.value);
-          console.log(`[session] Extracted ${frames.value.length} frames for Vision`);
-        } else {
-          console.warn("[session] Frame extraction failed or returned empty");
-        }
-
-        if (gestures.status === "fulfilled" && gestures.value.length > 0) {
+        if (frames.status === "fulfilled"   && frames.value.length > 0)
+          framesJson   = JSON.stringify(frames.value);
+        if (gestures.status === "fulfilled" && gestures.value.length > 0)
           gesturesJson = JSON.stringify(gestures.value);
-          console.log(`[session] Extracted ${gestures.value.length} gesture frames`);
-        } else {
-          console.warn("[session] Gesture extraction failed or returned empty");
-        }
       }
 
-      // ── Step 3: Build multipart form data ────────────────────────────
       const formData = new FormData();
-      const ext      = mode === "audio" ? "webm" : "webm";
-      formData.append("media",    mediaBlob, `recording.${ext}`);
+      formData.append("media",    mediaBlob, `recording.${mode === "audio" ? "webm" : "webm"}`);
       formData.append("scenario", context.scenario || "General presentation");
       formData.append("audience", context.audience || "General audience");
       formData.append("goal",     context.goal     || "Communicate effectively");

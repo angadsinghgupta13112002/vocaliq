@@ -8,7 +8,7 @@ const express        = require("express");
 const multer         = require("multer");
 const rateLimit      = require("express-rate-limit");
 const authMiddleware = require("../middleware/authMiddleware");
-const { analyzeSession, getSessions, getSession } = require("../controllers/coachingController");
+const { analyzeSession, getSessions, getSession, analyzeFromDrive } = require("../controllers/coachingController");
 
 const router = express.Router();
 
@@ -38,8 +38,9 @@ const upload = multer({
   },
 });
 
-router.post("/analyze",     authMiddleware, analyzeLimiter, upload.single("media"), analyzeSession);
-router.get("/sessions",     authMiddleware, getSessions);
-router.get("/sessions/:id", authMiddleware, getSession);
+router.post("/analyze",            authMiddleware, analyzeLimiter, upload.single("media"), analyzeSession);
+router.post("/analyze-from-drive", authMiddleware, analyzeLimiter, analyzeFromDrive);
+router.get("/sessions",            authMiddleware, getSessions);
+router.get("/sessions/:id",        authMiddleware, getSession);
 
 module.exports = router;
