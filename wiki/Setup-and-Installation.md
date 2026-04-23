@@ -14,7 +14,7 @@
 ## 1. Clone the repo
 
 ```bash
-git clone https://github.com/angadsinghgupta13112002/auraboard.git vocaliq
+git clone https://github.com/angadsinghgupta13112002/vocaliq.git
 cd vocaliq
 ```
 
@@ -56,6 +56,7 @@ GCS_BUCKET_NAME=<your GCS bucket name>
 GOOGLE_CLIENT_ID=<OAuth 2.0 client ID>
 GOOGLE_CLIENT_SECRET=<OAuth 2.0 client secret>
 GOOGLE_REDIRECT_URI=http://localhost:8080/api/auth/google/callback
+GOOGLE_PHOTOS_REDIRECT_URI=http://localhost:8080/api/auth/google/photos/callback
 
 # JWT
 JWT_SECRET=<a long random hex string>
@@ -83,7 +84,8 @@ VITE_API_URL=http://localhost:8080/api
 ```bash
 gcloud services enable firestore.googleapis.com \
   storage.googleapis.com run.googleapis.com \
-  cloudbuild.googleapis.com generativelanguage.googleapis.com
+  cloudbuild.googleapis.com generativelanguage.googleapis.com \
+  vision.googleapis.com drive.googleapis.com
 ```
 
 ### Create a GCS bucket
@@ -104,7 +106,9 @@ In [Google Cloud Console → APIs & Services → Credentials](https://console.cl
 
 1. Create an **OAuth 2.0 Client ID** (Web application)
 2. Add **Authorized JavaScript origins**: `http://localhost:5173`
-3. Add **Authorized redirect URIs**: `http://localhost:8080/api/auth/google/callback`
+3. Add **Authorized redirect URIs**:
+   - `http://localhost:8080/api/auth/google/callback` (main login)
+   - `http://localhost:8080/api/auth/google/photos/callback` (Google Drive picker)
 
 ---
 
@@ -147,6 +151,7 @@ Open **http://localhost:5173** in your browser.
 | `GOOGLE_CLIENT_ID` | Yes | OAuth 2.0 client ID |
 | `GOOGLE_CLIENT_SECRET` | Yes | OAuth 2.0 client secret |
 | `GOOGLE_REDIRECT_URI` | Yes | Must match what's registered in Cloud Console |
+| `GOOGLE_PHOTOS_REDIRECT_URI` | Yes | Google Drive OAuth callback URI |
 | `JWT_SECRET` | Yes | Minimum 32 chars, random hex recommended |
 | `JWT_EXPIRES_IN` | No | Default: `7d` |
 | `VITE_API_URL` | Client only | `http://localhost:8080/api` locally, `/api` in production |

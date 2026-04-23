@@ -1,0 +1,785 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VOCALIQ — DETAILED PRESENTATION SCRIPT
+CS651 | Project 2 | Word-for-word — read exactly as written
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SPEAKER SPLIT:
+  Angaddeep  → Slides 1, 2, 3, 4
+  Abhinay    → Slides 5, 6, 7
+  Samuel     → Slide 8
+  Lasya      → Slides 9, 10, 11
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ANGADDEEP — SLIDES 1, 2, 3, 4
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+─────────────────────────────────────────────────────────
+SLIDE 1 — Project 2 - overview
+─────────────────────────────────────────────────────────
+
+Hello everyone. My name is Angaddeep Singh Gupta, and this is our
+CS651 Project 2 presentation. With me today are my teammates
+Abhinay Konuri, Samuel Paul Chetty, and Lasya Uma Sri Lingala.
+
+Our application is called VocalIQ — which stands for Vocal
+Intelligence Quotient. It is an AI-powered speaking coach that
+gives you instant, personalized feedback on how you speak.
+
+The app is live and deployed. The URL is on screen —
+vocaliq-956080638663.us-central1.run.app — and we will be
+demonstrating it live shortly.
+
+Let me walk through the overview quickly.
+
+The purpose of VocalIQ is to solve a real problem — most people
+never get honest, detailed feedback on how they speak. Whether
+it's a job interview, a class presentation, or a sales pitch,
+the only way to improve is with a coach — and coaches are
+expensive. VocalIQ uses Google Gemini 2.5 Flash to act as that
+coach. You record yourself speaking, and in under 90 seconds,
+you get a full coaching report with scores, a transcript,
+improvement exercises, and a personalized practice plan.
+
+In terms of what Google services it uses — Google OAuth 2.0 for
+sign-in, Gemini 2.5 Flash for the AI analysis, Firestore for
+storing session data, Google Cloud Storage for storing the video
+and audio files, Cloud Run for deployment, and Google Analytics
+GA4 for tracking user behavior.
+
+Now for the status — I'm happy to say everything is working.
+Our React frontend is fully functional. Our Express backend is
+running on Cloud Run. Google OAuth authentication is working —
+users can sign in with their Google account and get a JWT token.
+Google Gemini API calls are working through our two-pass
+pipeline — I'll explain what that means in a moment. Google
+Analytics is tracking both frontend page views and backend
+server-side events. And Google Cloud Logging is capturing all
+our server activity through Cloud Run's built-in log collection.
+
+For Google Cloud Vision — you'll notice we marked that as N/A.
+Abhinay will explain exactly why on slide 7, but the short
+answer is that Gemini 2.5 Flash is multimodal — it handles
+both video and audio analysis in a single call, which makes a
+separate Cloud Vision integration unnecessary for our use case.
+
+─────────────────────────────────────────────────────────
+SLIDE 2 — Proposal
+─────────────────────────────────────────────────────────
+
+Our original proposal was to build an AI speaking coach that
+would be accessible, instant, and genuinely useful — not just
+a toy demo, but something people would actually want to use.
+
+Let me go through what we proposed and what we actually
+delivered.
+
+We proposed Google OAuth 2.0 sign-in — and we delivered that.
+Users click Sign in with Google, they go through the standard
+OAuth consent screen, and the server exchanges the authorization
+code for their user profile and issues a JWT token. That's
+fully working.
+
+We proposed in-browser video and audio recording using the
+browser's MediaRecorder API — and we delivered that. Users
+don't need to install anything. They just allow camera access,
+record directly in the browser, and submit. We also added a
+file upload option for people who already have a video they
+want to analyze.
+
+We proposed AI speech analysis with scores and feedback — and
+we not only delivered that, we went further than the proposal
+with a two-pass Gemini pipeline that produces significantly
+richer coaching output than a single API call would. Samuel
+will walk through that in detail on slide 8.
+
+We proposed Firestore session history — working. Every coaching
+session is saved to Firestore, and the Dashboard shows all past
+sessions sorted newest first.
+
+We proposed Cloud Run deployment — working. The app is live at
+the URL on screen right now.
+
+The one thing we proposed but did not fully complete was
+Instagram OAuth integration. The endpoint exists in the
+codebase, but we made a deliberate decision to deprioritize
+it. We felt that perfecting the Gemini coaching pipeline was
+more important to the core product than adding a second social
+login option. The foundation is there to add it in the future.
+
+─────────────────────────────────────────────────────────
+SLIDE 3 — DEPLOYMENT
+─────────────────────────────────────────────────────────
+
+Now let me show you where and how the app is deployed.
+
+[OPEN: console.cloud.google.com → Cloud Run → vocaliq service]
+
+VocalIQ is deployed on Google Cloud Run. This is Google's
+fully managed serverless container platform — it runs our
+Docker container and automatically scales it based on traffic.
+
+You can see the service here in the Cloud Run console. The
+service is called vocaliq, it's running in the us-central1
+region, under our project vocaliq-456009.
+
+The deployed URL — which you can see right here — is the live
+address of our application. This is what users visit.
+
+Let me explain our build process. We use a multi-stage
+Dockerfile. In stage one, we use a Node.js Alpine image to
+install all the dependencies and run the Vite build command,
+which compiles our React application into a static bundle of
+HTML, CSS, and JavaScript.
+
+In stage two, we take that built bundle, copy it alongside our
+Express server code, and run Node.js. The Express server does
+two things — it serves the React static files for all regular
+page visits, and it handles the API routes for slash-api
+requests. This means the frontend and backend are served from
+the exact same URL, which simplifies everything.
+
+For security, we use Application Default Credentials — there
+is no service account key file stored inside the Docker image.
+Instead, the Cloud Run service has a service account attached
+to it with the exact permissions it needs — Firestore, Cloud
+Storage, and Gemini. The credentials are available
+automatically to the running container.
+
+[SHOW: Revisions tab]
+
+You can see the revision history here — each deployment is
+tagged with a timestamp and the container image digest, so we
+have a full audit trail of every deployment.
+
+[SHOW: the live URL and click it to confirm it opens]
+
+And here's the live application, running right now.
+
+─────────────────────────────────────────────────────────
+SLIDE 4 — Run Demonstration
+─────────────────────────────────────────────────────────
+
+Now let me demonstrate the full application live.
+
+[OPEN: https://vocaliq-956080638663.us-central1.run.app]
+
+This is the VocalIQ landing page. It's clean and simple — the
+only action is to sign in with Google.
+
+[CLICK: Sign in with Google]
+
+I'll click Sign in with Google. This redirects to Google's
+OAuth consent screen. I'll select my account.
+
+[COMPLETE: OAuth login]
+
+And we're in. The server exchanged my authorization code for
+my Google profile, created or updated my user document in
+Firestore, issued a signed JWT token, and redirected me back
+to the app with that token.
+
+This is the Session Setup page. Before I record anything, I
+configure the context of my session — this context is sent to
+Gemini along with the recording so the AI understands what
+kind of speech it's analyzing.
+
+I'll set the scenario to Job Interview, the audience to Hiring
+Manager, and my goal to Sound more confident. I'll choose
+Video mode so Gemini can see me as well as hear me.
+
+[FILL IN THE FORM AND CLICK CONTINUE]
+
+Now I'm on the recording page. I can see my webcam feed in
+real time. I'll click Start Recording and speak for about a
+minute.
+
+[START RECORDING — speak naturally, something like:]
+
+"Good morning. My name is Angaddeep and I'm here today to
+discuss my qualifications for the software engineering role.
+I have three years of experience building full-stack web
+applications using React and Node.js. In my most recent
+project, I built an AI-powered coaching application that uses
+Google Gemini to analyze speech and provide personalized
+feedback. I'm passionate about solving real problems with
+technology, and I believe this role would give me the
+opportunity to do exactly that. I'm confident in my ability
+to contribute to your team from day one, and I'm excited
+about the direction the company is heading..."
+
+[STOP RECORDING]
+
+I'll stop the recording there. Now I'll click Analyze My
+Speech.
+
+[CLICK ANALYZE]
+
+Watch the progress overlay — each step represents what's
+happening on the server right now. The video is being uploaded
+to the Gemini File API. Gemini is processing the file. Pass 1
+is running the speech assessment. Pass 2 is building the
+personalized coaching plan using Pass 1's results. And finally
+the session is being saved to Firestore.
+
+[WAIT FOR ANALYSIS TO COMPLETE]
+
+And here is the coaching report.
+
+You can see my overall score out of ten at the top, with the
+animated score ring. Below that is Gemini's written
+justification explaining why I got that score. Then the five
+sub-scores — Content Clarity, Emotional Delivery, Vocal
+Confidence, Pacing, and Audience Engagement.
+
+You can also see the emotion box — Gemini detected nervousness
+in my speech when confidence was needed.
+
+Let me click through the tabs.
+
+[CLICK: Transcript tab]
+
+The Transcript tab shows a timestamped breakdown of everything
+I said, segment by segment, with the time offset for each part.
+
+[CLICK: Tips tab]
+
+The Tips tab is where the detailed coaching lives. Each card
+has a specific issue Gemini identified, an explanation of why
+it matters, a concrete exercise to fix it, and in some cases
+a suggested better phrasing.
+
+At the bottom is a seven-day personalized practice plan.
+
+[CLICK: Vocal Control tab]
+
+The Vocal Control tab breaks down the technical aspects of my
+speech — my current speaking pace in words per minute versus
+the target, feedback on my vocal tone, breath control advice,
+and pause technique tips.
+
+[GO TO: Dashboard]
+
+And finally the Dashboard shows this session saved in my
+history, with the date, scenario, and score. I can click it
+any time to re-read the full report.
+
+I'll hand it over now to Abhinay.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABHINAY — SLIDES 5, 6, 7
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+─────────────────────────────────────────────────────────
+SLIDE 5 — Google Cloud Console / Dashboard
+─────────────────────────────────────────────────────────
+
+Thank you Angaddeep. I'm Abhinay Konuri, and I'll be walking
+you through the Google Cloud infrastructure, the database, and
+the AI pipeline.
+
+[OPEN: console.cloud.google.com → Cloud Run → vocaliq →
+Metrics tab]
+
+This is the Google Cloud Run metrics dashboard for VocalIQ.
+Let me walk through what we're looking at.
+
+The Request Count chart shows the total number of API requests
+our container has handled since deployment. Each spike
+corresponds to a user submitting a video for analysis —
+you can see the pattern of activity as we drove traffic to
+the app by sharing it with friends, colleagues, and family.
+
+The Request Latency graph is particularly interesting for our
+application. Notice that the median latency — the p50 line —
+is quite low for regular API calls like fetching session
+history or loading the dashboard. But the p95 and p99 lines
+are much higher. That's because the Gemini analysis can take
+anywhere from 30 to 90 seconds for longer videos. This is
+expected behavior, and we configured Cloud Run's request
+timeout to 540 seconds to accommodate it.
+
+[POINT to the Container Instance Count graph]
+
+The Container Instance Count graph shows Cloud Run's
+auto-scaling in action. When there's no traffic, the instance
+count drops to zero — this is the scale-to-zero feature that
+keeps costs near zero during idle periods. When requests
+arrive, Cloud Run spins up a new container instance within
+a few seconds.
+
+[OPEN: Revisions tab]
+
+The Revisions tab gives us a full deployment history. Each
+time we pushed a new Docker image and ran the deploy command,
+a new revision was created here with a timestamp and image
+digest. This acts as our deployment audit log.
+
+[OPEN: the Service details page showing the URL]
+
+And here you can see the service URL pointing to our live
+application, along with the service account that provides
+the Application Default Credentials for Firestore, GCS,
+and Gemini.
+
+─────────────────────────────────────────────────────────
+SLIDE 6 — Google Cloud data(base) solution
+─────────────────────────────────────────────────────────
+
+For our database, we use Google Cloud Firestore in Native mode.
+Firestore is a NoSQL document database — data is organized into
+collections, and each collection contains documents.
+
+[OPEN: console.firebase.google.com → Firestore]
+
+You can see the Firestore console here. We have two collections.
+
+The first is the users collection. Let me open it.
+
+[CLICK: users collection → open a document]
+
+Each document in the users collection is keyed by the user's
+Firebase UID — the unique identifier assigned by Google OAuth.
+The document stores the user's display name, email, photo URL,
+the provider which is always "google" in our case, and an
+updatedAt timestamp. This document is created or updated on
+every single login using a merge operation, so data is never
+accidentally overwritten.
+
+The second collection is coaching_sessions.
+
+[CLICK: coaching_sessions collection]
+
+Each session document is keyed by the user's UID combined with
+a Unix timestamp. This guarantees uniqueness and makes the
+documents naturally sortable by creation time.
+
+Let me open one of these documents so you can see the actual
+data.
+
+[OPEN: a coaching session document]
+
+You can see everything here — the userId, the mode which is
+video or audio, the context object with the scenario audience
+and goal, the overall score, the scoreBreakdown object with
+all five sub-scores, the emotion that was detected versus what
+was needed, the words per minute, the full transcript as an
+array of timestamped objects, the detailed tips array, the
+vocal control object with pacing tone breath and pause, the
+strengths to keep, and the practice plan string.
+
+This is all written in a single Firestore operation by our
+Express server at the end of the Gemini analysis.
+
+Now let me show you the before and after.
+
+[SCROLL to show the number of documents currently in the
+collection]
+
+Right now we have this many session documents in the
+collection. When Angaddeep ran the demo on slide 4, a new
+document was created. Let me refresh.
+
+[REFRESH the Firestore console]
+
+You can see the new document appeared right here at the top —
+created just moments ago with all the coaching data from that
+live demo session. This is the real-time write that happens
+at the end of every analysis.
+
+All of this access happens exclusively through the Firebase
+Admin SDK on our Express server. The React client never
+connects to Firestore directly — every read and write is
+mediated through our JWT-protected API routes.
+
+─────────────────────────────────────────────────────────
+SLIDE 7 — Google Cloud Vision solution
+─────────────────────────────────────────────────────────
+
+This slide is about Google Cloud Vision. I want to be very
+transparent here — VocalIQ does not use the standalone Cloud
+Vision API, and I want to explain exactly why that was the
+right decision for this application.
+
+Google Cloud Vision is a powerful API. It can identify objects,
+read text, detect faces, and analyze images. But it has an
+important limitation — it only works on static images. It
+cannot process video over time, it cannot hear audio, and it
+cannot generate coaching advice.
+
+For a speaking coach, you need all three of those things
+simultaneously. You need to hear the speech, you need to see
+the speaker's body language and delivery over time, and you
+need to synthesize all of that into meaningful feedback.
+
+Gemini 2.5 Flash is a natively multimodal model. When we
+upload a video file to the Gemini File API, Gemini can see
+every frame of that video AND hear the audio track, all in
+a single API call. It understands context, generates natural
+language analysis, and produces structured JSON output — none
+of which Cloud Vision can do.
+
+[OPEN: server/services/geminiCoachingService.js in VS Code]
+
+You can see in our code here — we upload the video buffer to
+the Gemini File API using the uploadFile method. The file URI
+is then passed as a Part alongside our prompt in the
+generateContent call. Gemini processes both the video frames
+and audio together and returns a comprehensive analysis.
+
+If we had used Cloud Vision instead, we would have needed
+Cloud Vision for frame analysis, Cloud Speech-to-Text for
+audio transcription, and a third separate system to synthesize
+everything into coaching advice. That's three APIs, three
+integrations, three billing items, and three potential failure
+points — versus one Gemini call that does all of it better.
+
+So our position is: Gemini 2.5 Flash makes Cloud Vision
+redundant for this specific use case. It's not that we skipped
+it — it's that we chose the better tool.
+
+I'll now pass it over to Samuel who will go deeper into the
+Gemini pipeline.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SAMUEL — SLIDE 8
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+─────────────────────────────────────────────────────────
+SLIDE 8 — Google Gemini solution
+─────────────────────────────────────────────────────────
+
+Thank you Abhinay. I'm Samuel Paul Chetty, and I'll be
+explaining how we use the Google Gemini API in depth.
+
+The Gemini API is the heart of VocalIQ. Without it, the app
+is just a video recorder. Gemini is what turns a recording
+into a coaching report.
+
+We use Gemini 2.5 Flash through what we call a two-pass
+chained pipeline. Let me explain what that means and why
+we designed it this way.
+
+[OPEN: the coaching report from the live demo — have it
+visible on screen]
+
+A naive approach would be to send the video to Gemini with
+one prompt and ask for everything at once. The problem with
+that is Gemini tends to give generic, surface-level advice
+when asked too many things at once. We wanted specific,
+grounded coaching — the kind of advice that references what
+the speaker actually did, not a template response.
+
+So we designed two separate passes that chain together.
+
+In Pass 1, we upload the video or audio file directly to the
+Gemini File API — this is different from just sending the
+file in the prompt, it uses a dedicated upload endpoint that
+handles large media files. We then send a structured prompt
+that instructs Gemini to act as a speech assessment engine
+and return a JSON object.
+
+That JSON contains the overall score from zero to ten, five
+sub-scores across content clarity, emotional delivery, vocal
+confidence, pacing, and audience engagement, the emotion
+Gemini detected in the speech versus what was needed for
+that scenario, the speaker's words per minute, a full
+timestamped transcript broken into segments, and the top
+improvement areas.
+
+[POINT to the Overview tab on the report]
+
+Everything you see on the Overview tab — the score ring, the
+sub-scores, the emotion box — that all came from Pass 1.
+
+[POINT to the Transcript tab]
+
+The Transcript tab is also Pass 1.
+
+Now Pass 2 is where the deep coaching happens.
+
+We take the entire JSON output from Pass 1 — all of it —
+and we inject it into the Pass 2 prompt as context. We
+essentially tell Gemini: "Here is what you found in this
+speech. Now act as a personal speaking coach and build a
+detailed improvement plan based specifically on these
+findings."
+
+Because Pass 2 already has Pass 1's analysis as context,
+it produces coaching advice that is grounded in what was
+actually observed. It's not generic. It references the
+specific emotions detected, the specific WPM, the specific
+weaknesses.
+
+Pass 2 returns detailed tip cards — each one has a title,
+an explanation, a specific practice exercise, and where
+relevant, a better phrasing suggestion. It returns a vocal
+control breakdown covering current pacing versus target
+pacing, tone feedback, breath control guidance, and pause
+technique. It returns a list of strengths to keep. And it
+returns a full seven-day personalized practice plan.
+
+[CLICK: Tips tab on the report]
+
+This entire Tips tab is Pass 2 output.
+
+[CLICK: Vocal Control tab]
+
+And so is the Vocal Control tab — including these WPM
+numbers right here.
+
+The reason we chose a two-pass approach rather than a
+single prompt is simple — Pass 2 cannot hallucinate generic
+advice because it has Pass 1's real findings in front of
+it. The coaching is always tied to what was actually in
+the recording. That's what makes the output genuinely
+useful rather than just impressive-looking.
+
+I'll now hand it over to Lasya for analytics, logging,
+and our summary.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LASYA — SLIDES 9, 10, 11
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+─────────────────────────────────────────────────────────
+SLIDE 9 — Google Analytics
+─────────────────────────────────────────────────────────
+
+Thank you Samuel. I'm Lasya Uma Sri Lingala, and I'll cover
+how we implemented analytics and logging, and then wrap up
+with our summary.
+
+VocalIQ uses Google Analytics 4 at two completely separate
+levels — the frontend and the backend — and I want to explain
+both because they work differently and serve different purposes.
+
+On the frontend, we load the gtag.js library in our index.html
+file. This automatically initializes GA4 and tracks the
+initial page load. We also built a custom utility module called
+analytics.js with two functions — trackPageView and trackEvent.
+
+We placed a component called PageViewTracker inside React
+Router that calls trackPageView every time the route changes.
+This means every navigation within the single-page app is
+tracked as a page view — the dashboard, the session setup,
+the recording page, the report — all of it shows up in GA4.
+
+Beyond page views, we fire custom events at every meaningful
+user action. When a user successfully logs in, we fire a
+login event. When they click Analyze My Speech, we fire
+session_submitted with the mode and scenario as parameters.
+When the analysis comes back successfully, we fire
+session_complete. And every time a user clicks a tab on
+the coaching report, we fire report_tab_viewed with the tab
+name — so we know whether users are engaging with the
+Transcript, Tips, or Vocal Control sections.
+
+[OPEN: analytics.google.com → Reports → Realtime]
+
+You can see the GA4 Real-Time dashboard here. This shows
+active users right now, which pages they're on, and which
+events are firing. If we use the app while this is open,
+you'll see the events appear here in real time.
+
+[OPEN: Reports → Engagement → Events]
+
+This is the Events report — it shows every custom event we've
+tracked, how many times each one has fired, and how many
+unique users triggered it. You can see session_submitted and
+session_complete here, which together tell us our analysis
+completion rate. You can see report_tab_viewed with counts
+for each tab, which tells us what users actually read.
+
+Now for the backend analytics — this is something most
+applications don't do, but we felt it was important.
+
+We built an analytics service on the Express server that uses
+the GA4 Measurement Protocol. This is a special HTTP API that
+lets your server send events directly to Google Analytics,
+completely independent of any browser. We use axios to post
+events to the Measurement Protocol endpoint with our GA4
+API secret.
+
+We fire two server-side events. The first is a login event
+sent right after the JWT is issued on the server — this
+confirms the OAuth flow completed successfully on the backend,
+not just on the client. The second is a session_analyzed
+event sent after the Firestore write — it includes the
+overall score, the language detected, the mode, and the
+scenario. This means even if a user closes their browser
+before the result loads, we still have a record on the server
+that the analysis completed.
+
+Analytics failures are silently swallowed — if the GA4
+Measurement Protocol call fails for any reason, it never
+affects the API response the user gets.
+
+─────────────────────────────────────────────────────────
+SLIDE 10 — Google Cloud Logging
+─────────────────────────────────────────────────────────
+
+For logging, we use Google Cloud Logging through Cloud Run's
+built-in log collection. When our Node.js process writes
+anything to console.log, console.warn, or console.error,
+Cloud Run automatically captures that output and forwards it
+to Google Cloud Logging with a timestamp, severity level, and
+the Cloud Run revision identifier attached.
+
+We follow a strict naming convention throughout the entire
+codebase — every log statement starts with a module name in
+square brackets. This makes it trivial to filter logs in the
+Cloud Logging console.
+
+[OPEN: console.cloud.google.com → Cloud Run → vocaliq →
+Logs tab]
+
+You can see the live log stream here. Let me filter by
+the gemini prefix so we can see the Gemini API calls.
+
+[TYPE: [gemini] in the filter box]
+
+Here you can see every Gemini API call — when the file was
+uploaded, when Pass 1 started and completed, when Pass 2
+started and completed. Each entry has a precise timestamp so
+we can measure exactly how long each pass takes.
+
+[CLEAR filter and TYPE: [storage]]
+
+Here are the Google Cloud Storage upload logs — you can see
+the filename, the bucket path, and the public URL for every
+video that was uploaded.
+
+[CLEAR filter and TYPE: [coaching]]
+
+And here are the coaching controller logs — you can see when
+each session analysis started, which user it was for, and
+when the session was successfully saved to Firestore.
+
+[OPEN: console.cloud.google.com → Logging → Logs Explorer]
+
+For more advanced querying, we can use the Logs Explorer.
+Here I can write structured queries to filter logs across
+multiple dimensions. For example, I can filter to show only
+error-level logs from our Cloud Run service to quickly find
+any failures that happened.
+
+This logging setup gives us full observability into the
+entire application pipeline — from the moment a user submits
+a video to the moment their session is saved — all visible
+in real time from the Google Cloud console.
+
+─────────────────────────────────────────────────────────
+SLIDE 11 — Summary
+─────────────────────────────────────────────────────────
+
+And that brings us to our final slide — the summary.
+
+Let me start with the problems we hit, because I think these
+are genuinely useful lessons.
+
+The first was an Express 5 breaking change. Express 5 no longer
+supports wildcard routes written as app.get with a star. It
+throws a PathError at startup. We spent time debugging this
+before realizing the fix was simply to replace it with
+app.use and a handler function.
+
+The second was a Cloud Run environment variable issue. Cloud
+Run reserves the PORT variable and injects it automatically
+into the container. When we tried to set PORT equals 8080 in
+our deploy command's environment variables, the deployment
+failed with an error saying reserved environment variable
+names were provided. We removed it and let Cloud Run handle
+it.
+
+The third was an Application Default Credentials problem. Our
+gitignore and dockerignore files correctly excluded the
+service account key file from the Docker image — but our code
+was trying to load that file unconditionally. On Cloud Run
+where the file doesn't exist, the server crashed on startup.
+The fix was to add a conditional — if the key file path
+environment variable is set, use the key file, otherwise fall
+back to Application Default Credentials.
+
+The fourth was a Vite build-time environment variable issue.
+Vite replaces environment variables at build time, not at
+runtime. So the API URL of localhost colon 8080 was hardcoded
+into the production bundle. We fixed it by creating a
+.env.production file with VITE_API_URL set to slash api for
+same-origin serving on Cloud Run.
+
+Now for how we would improve VocalIQ going forward.
+
+The most impactful improvement would be progress tracking —
+showing users a trend of their scores across multiple sessions
+so they can see whether they're actually improving over time.
+Right now you can see your history but there's no visualization
+of progress.
+
+We would also want to add real-time feedback during recording
+— not just after. Imagine a subtle indicator showing you're
+speaking too fast while you're still recording, rather than
+telling you afterward.
+
+We would complete the Instagram OAuth integration from our
+original proposal. And we would add multi-language support
+for the coaching reports — Gemini already detects the language
+of the speech, so it's a logical extension.
+
+Finally — what we learned from building this.
+
+The most important technical lesson was that chaining AI
+prompts dramatically improves output quality. Pass 2 produces
+coaching that is far more specific and useful than anything
+we got from single-prompt approaches, precisely because it's
+grounded in Pass 1's findings.
+
+We learned that Application Default Credentials is the correct
+way to handle secrets on Cloud Run — never put key files in
+Docker images.
+
+We learned that GA4's Measurement Protocol is a powerful tool
+that most developers don't use — tracking server-side events
+gives you a much more complete picture of user behavior than
+frontend analytics alone.
+
+And we learned that Vite, Gemini, Express 5, and Cloud Run
+each have specific behaviors and constraints that are not
+immediately obvious — and that the only way to learn them
+is to build something real and hit the errors yourself.
+
+Thank you to our professor for the guidance throughout this
+project. We hope VocalIQ demonstrates not just that we can
+build a full-stack application, but that we thought carefully
+about the design decisions along the way.
+
+We are Angaddeep Singh Gupta, Abhinay Konuri, Samuel Paul
+Chetty, and Lasya Uma Sri Lingala — thank you for watching,
+and we are happy to take any questions.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+END OF SCRIPT
+Estimated total time: 15–20 minutes
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+QUICK REFERENCE — WHAT TO HAVE OPEN BEFORE RECORDING:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tab 1:  VocalIQ live app
+        https://vocaliq-956080638663.us-central1.run.app
+
+Tab 2:  Cloud Run console
+        console.cloud.google.com → Cloud Run → vocaliq
+
+Tab 3:  Firestore console
+        console.firebase.google.com → Firestore
+
+Tab 4:  GA4 Realtime dashboard
+        analytics.google.com → Reports → Realtime
+
+Tab 5:  Cloud Logging / Logs Explorer
+        console.cloud.google.com → Logging → Logs Explorer
+
+Tab 6:  VS Code with geminiCoachingService.js open
+        server/services/geminiCoachingService.js
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

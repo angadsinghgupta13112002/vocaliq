@@ -9,12 +9,17 @@ const jwt = require("jsonwebtoken");
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
-  // Expect "Bearer <token>" format
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  // Accept token from Authorization header (API calls) OR query param (browser redirects)
+  // The query param path is only used for the Google Photos OAuth redirect flow
+  // where window.location.href is used and headers cannot be set.
+  let token;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    token = authHeader.split(" ")[1];
+  } else if (req.query.token) {
+    token = req.query.token;
+  } else {
     return res.status(401).json({ success: false, error: "No token provided" });
   }
-
-  const token = authHeader.split(" ")[1];
 
   try {
     // Verify and decode the JWT using our secret key

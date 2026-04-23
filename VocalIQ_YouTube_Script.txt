@@ -1,0 +1,686 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VOCALIQ — YOUTUBE VIDEO SCRIPT (FINAL)
+CS651: Web Systems | Professor Lynne Grewe | CSUEB
+Word-for-word — read exactly as written
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SPEAKER SPLIT:
+  Abhinay  → Slides 1, 2, 3, 4, 5, 6   (Intro, Proposal, Deployment, Demo, Cloud Console, Firestore)
+  Samuel   → Slides 7, 8, 9, 10, 11     (Cloud Vision, Gemini, Analytics, Logging, Summary)
+
+ESTIMATED TOTAL TIME: 15–18 minutes
+
+WHAT TO HAVE OPEN BEFORE RECORDING:
+  Tab 1: VocalIQ live app → https://vocaliq-956080638663.us-central1.run.app
+  Tab 2: Cloud Run console → console.cloud.google.com → Cloud Run → vocaliq
+  Tab 3: Firestore → console.firebase.google.com → Firestore
+  Tab 4: GA4 Realtime → analytics.google.com → Reports → Realtime
+  Tab 5: Cloud Logging → console.cloud.google.com → Logging → Logs Explorer
+  Tab 6: VS Code with visionService.js open
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ABHINAY — SLIDES 1, 2, 3, 4, 5, 6
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+─────────────────────────────────────────────────────────
+SLIDE 1 — Project Overview
+─────────────────────────────────────────────────────────
+
+Hello everyone. My name is Abhinay Konuri, and this
+is our CS651 Web Systems Project 2 presentation for
+Professor Lynne Grewe at Cal State East Bay.
+
+With me today is my teammate Samuel Paul Chetty.
+
+Our application is called VocalIQ — which stands for
+Vocal Intelligence Quotient. VocalIQ is an AI-powered
+speaking coach that gives you instant, personalized
+feedback on how you speak.
+
+The app is fully live and deployed at
+vocaliq-956080638663.us-central1.run.app — and we will
+be demonstrating it live during this video.
+
+Here is a quick overview of the Google technologies we
+use:
+
+Google OAuth 2.0 for user sign-in — users log in with
+their Google account and receive a JWT token.
+
+Google Drive OAuth — a separate OAuth flow that lets
+users browse and pull videos directly from their
+Google Drive account into the coaching session.
+
+Google Gemini 2.5 Flash — the AI engine that analyzes
+your speech through a two-pass pipeline and generates
+a full coaching report.
+
+Google Cloud Vision API — extracts frames from your
+video every 3 seconds and uses Face Detection to build
+a second-by-second emotion timeline showing when you
+looked nervous, confident, or anxious.
+
+Google Cloud Firestore — stores all user data and
+coaching session results.
+
+Google Cloud Storage — stores the uploaded video and
+audio files.
+
+Google Cloud Run — where the entire application is
+deployed as a containerized service.
+
+Google Analytics GA4 — tracks user behavior on both
+the frontend and backend.
+
+And Google Cloud Logging — captures every server
+event through Cloud Run's built-in log collection.
+
+All of these are fully working and live right now.
+
+─────────────────────────────────────────────────────────
+SLIDE 2 — Proposal
+─────────────────────────────────────────────────────────
+
+Our original proposal was to build an AI speaking coach
+that is accessible, instant, and genuinely useful.
+
+Let me walk through what we proposed and what we delivered.
+
+We proposed Google OAuth 2.0 sign-in — fully delivered.
+Users click Sign in with Google, go through the OAuth
+consent screen, the server exchanges the authorization
+code, creates their Firestore user document, and issues
+a signed JWT token.
+
+We proposed social media OAuth integration for pulling
+videos from the user's account. We delivered this using
+Google Drive OAuth with the drive.readonly scope.
+When a user clicks Browse Google Drive in Upload mode,
+they authorize Google Drive access and instantly see a
+grid of their video files to pick from — no downloading
+to their device first.
+
+We proposed AI speech analysis with scores and coaching
+feedback — delivered through a two-pass Gemini pipeline
+that Samuel will walk through in detail.
+
+We proposed Cloud Vision facial expression analysis —
+fully delivered. The app extracts frames from uploaded
+videos using the browser Canvas API, sends them to
+Google Cloud Vision Face Detection, and generates a
+per-second emotion timeline on the coaching report.
+This was specifically requested by our professor during
+the project, and we implemented it fully.
+
+We proposed Firestore session history — working. Every
+session is saved and the Dashboard shows all past
+sessions.
+
+We proposed Cloud Run deployment — working. The app
+has been continuously deployed and updated throughout
+the project on Cloud Run.
+
+─────────────────────────────────────────────────────────
+SLIDE 3 — Deployment
+─────────────────────────────────────────────────────────
+
+Let me walk you through our deployment setup.
+
+[OPEN: console.cloud.google.com → Cloud Run → vocaliq]
+
+VocalIQ is deployed on Google Cloud Run under our
+project auraboard-492122. Cloud Run is Google's fully
+managed serverless container platform — it runs our
+Docker container and automatically scales based on
+traffic, including scaling to zero when idle.
+
+Our build process uses a multi-stage Dockerfile.
+
+Stage one uses a Node.js Alpine image to install
+dependencies and run the Vite build command, which
+compiles our React frontend into a static bundle.
+
+Stage two copies that bundle alongside our Express
+server code and runs Node.js. The Express server does
+two things — it serves the React static files, and it
+handles all API routes under slash api. Frontend and
+backend are served from the exact same URL.
+
+For security, we use Application Default Credentials.
+There is no service account key file inside the Docker
+image. The Cloud Run service has a service account
+attached with exactly the permissions it needs —
+Firestore, Cloud Storage, and Gemini.
+
+[SHOW: Revisions tab in Cloud Run]
+
+The Revisions tab shows our full deployment history.
+You can see every time we pushed a new image and
+deployed. Each revision has a timestamp and image
+digest as an audit trail.
+
+[SHOW: the live URL]
+
+And here is the live application running right now.
+
+─────────────────────────────────────────────────────────
+SLIDE 4 — Live Demonstration
+─────────────────────────────────────────────────────────
+
+Now let me demonstrate the full application live,
+including both new features we added — the Google
+Drive video picker and the Cloud Vision emotion
+timeline.
+
+[OPEN: https://vocaliq-956080638663.us-central1.run.app]
+
+This is the VocalIQ landing page. The only action
+is Sign in with Google.
+
+[CLICK: Sign in with Google → complete OAuth]
+
+We're in. The server exchanged the authorization code,
+created my user document in Firestore, issued a JWT
+token, and redirected me back to the app.
+
+PART 1 — GOOGLE DRIVE VIDEO PICKER
+
+Let me first show the Google Drive integration.
+
+I'll click New Session and select Upload mode.
+
+[NAVIGATE to New Session → select Upload → Start Session]
+
+You can see the Upload page. Below the drop zone
+there is a Browse Google Drive button. I'll click it.
+
+[CLICK: Browse Google Drive]
+
+This opens the Google Drive video picker. The first
+time a user clicks this, they'll see a Connect Google
+Drive screen — which redirects them through Google
+OAuth to authorize drive.readonly access.
+
+Since I've already connected, I'm seeing my video
+library directly — a grid of all my video files
+from Google Drive with thumbnails and dates.
+
+[POINT to the grid of videos]
+
+The user simply clicks any video, it downloads from
+Google Drive directly to the app, and is ready for
+analysis — no local file needed.
+
+PART 2 — RECORDING AND FULL ANALYSIS WITH EMOTION TIMELINE
+
+Let me now record a video and show the full coaching
+report including the Cloud Vision emotion timeline.
+
+I'll go back to New Session and choose Record Video mode
+this time so you can see the full pipeline.
+
+[NAVIGATE: New Session → Video mode → set scenario to
+Job Interview → audience to Hiring Panel → Start Session]
+
+[START RECORDING — speak naturally for about 60 seconds:]
+
+"Good morning. My name is Abhinay and I'm applying
+for the software engineering position. I have three
+years of experience building full-stack applications
+with React and Node.js. In my most recent project I
+built an AI-powered speech coaching application using
+Google Gemini, Cloud Vision, and Cloud Run. I'm excited
+about this opportunity and I believe my skills in cloud
+architecture and AI integration would be a strong
+contribution to your team. I look forward to discussing
+how I can add value to your organization."
+
+[STOP RECORDING — click Analyze My Speech]
+
+Watch the progress steps — the first step is extracting
+frames from the video for Cloud Vision analysis. Then
+the video uploads to the Gemini File API. Then the
+two Gemini passes run. Then Cloud Vision processes all
+the frames in parallel. Then the session is saved.
+
+[WAIT for analysis — approximately 30-60 seconds]
+
+Here is the full coaching report.
+
+[POINT to the score ring and overview]
+
+The Overview tab shows my overall score, the five
+sub-scores, and the emotion Gemini detected.
+
+Now let me click the Emotion Timeline tab — this
+is the Cloud Vision feature.
+
+[CLICK: Emotion Timeline tab]
+
+This is the brand new Cloud Vision emotion timeline.
+At the top are three summary cards — my dominant
+emotion, my nervous moments with the timestamps
+in seconds, and my confident moments.
+
+Below that is the horizontal timeline bar — each
+segment represents one analyzed frame, color-coded
+by emotion. Green means confident, orange means
+nervous, gray means neutral.
+
+[POINT to the bar]
+
+You can hover over any segment to see the exact
+timestamp and emotion for that frame.
+
+Below the bar is the emotion breakdown chart —
+showing what percentage of my total frames fell
+into each emotion category.
+
+And at the bottom is a personalized coaching
+insight based on my dominant emotion.
+
+[CLICK through Transcript, Tips, and Vocal Control tabs briefly]
+
+The other tabs show the Gemini coaching — the full
+transcript with timestamps, detailed tip cards with
+exercises, and the vocal control breakdown.
+
+[GO TO: Dashboard]
+
+And the Dashboard shows this session saved with
+the date, scenario, and score. All data is stored
+in Firestore.
+
+─────────────────────────────────────────────────────────
+SLIDE 5 — Google Cloud Console Dashboard
+─────────────────────────────────────────────────────────
+
+Now let me walk you through the Google Cloud
+infrastructure behind what you just saw.
+
+[OPEN: console.cloud.google.com → Cloud Run → vocaliq → Metrics]
+
+This is the Cloud Run metrics dashboard for VocalIQ.
+
+The Request Count chart shows every API request our
+container has handled. Each spike corresponds to a
+user submitting a recording for analysis.
+
+The Request Latency graph shows an important pattern
+for our app. Regular API calls like loading the
+dashboard have low latency. But the p95 and p99
+lines are much higher — that's because the Gemini
+analysis plus Cloud Vision frame processing can take
+up to 90 seconds. We configured Cloud Run's timeout
+to 540 seconds to accommodate this.
+
+[POINT to Container Instance Count]
+
+The Container Instance Count shows Cloud Run's
+auto-scaling. When there's no traffic, it scales
+to zero — keeping costs near zero when idle. New
+requests spin up a container within seconds.
+
+[SHOW: Revisions tab]
+
+The Revisions tab is our deployment audit log.
+Every deploy creates a new revision with timestamp
+and image digest. You can see the many revisions
+from our active development of this project.
+
+─────────────────────────────────────────────────────────
+SLIDE 6 — Google Cloud Database (Firestore)
+─────────────────────────────────────────────────────────
+
+For our database we use Google Cloud Firestore
+in Native mode — a NoSQL document database.
+
+[OPEN: console.firebase.google.com → Firestore]
+
+We have two collections — users and coaching_sessions.
+
+[OPEN: users collection → open a document]
+
+Each users document is keyed by the user's Google UID.
+It stores the display name, email, photo URL, provider,
+and for users who have connected Google Drive, it also
+stores the Drive access token and refresh token securely.
+This document is upserted on every login using a merge
+operation so no data is ever overwritten accidentally.
+
+[OPEN: coaching_sessions collection → open a document]
+
+Each coaching session document contains the full output
+of both Gemini passes AND the Cloud Vision emotion
+analysis. You can see the emotionTimeline array —
+each entry has a second, emotion label, and confidence
+score. And the emotionSummary object with the dominant
+emotion, nervous seconds, and confident seconds.
+
+This is all written in a single Firestore operation
+at the end of each analysis — Gemini results and
+Vision results together.
+
+[REFRESH while the demo session is visible]
+
+You can see the session we just recorded appeared at
+the top of the collection in real time.
+
+All Firestore access is exclusively through the
+Firebase Admin SDK on our Express server. The React
+client never connects to Firestore directly — all
+reads and writes go through our JWT-protected routes.
+
+I'll hand it over to Samuel.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SAMUEL — SLIDES 7, 8, 9, 10, 11
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+─────────────────────────────────────────────────────────
+SLIDE 7 — Google Cloud Vision
+─────────────────────────────────────────────────────────
+
+Thank you Abhinay. I'm Samuel Paul Chetty, and I'll
+walk you through the two AI systems powering VocalIQ —
+Cloud Vision and Gemini — then cover Analytics,
+Logging, and our project summary.
+
+Google Cloud Vision is one of the two AI systems
+running in VocalIQ. Specifically, we use Cloud Vision's
+Face Detection feature to analyze the speaker's facial
+expressions frame by frame.
+
+Let me explain the full pipeline.
+
+[OPEN: VS Code → client/src/utils/frameExtractor.js]
+
+Step one happens entirely in the browser. When a user
+submits a video, before it's uploaded to the server,
+our frameExtractor.js utility uses the browser's
+HTML5 Video element and Canvas API to extract one JPEG
+frame every three seconds — up to twenty frames total.
+
+Each frame is captured at 320 by 240 resolution and
+encoded as a base64 JPEG string. The entire extraction
+happens client-side — no server roundtrip, no ffmpeg,
+no extra dependencies.
+
+[OPEN: VS Code → server/services/visionService.js]
+
+Step two is on the server. The frames array is sent
+to our Express server alongside the video file as part
+of the multipart form submission.
+
+Our visionService.js takes those frames and sends
+them to the Google Cloud Vision Face Detection API
+in batches of five — to stay within rate limits —
+using Promise.all for parallel processing.
+
+For each frame, Cloud Vision returns likelihood scores
+for four emotions — joy, sorrow, anger, and surprise —
+rated on a scale from VERY_UNLIKELY to VERY_LIKELY.
+
+We map these to coaching-specific labels. High joy
+means confident. High sorrow means nervous. Combined
+sorrow and low joy means anxious. High anger means
+frustrated. We calculate a confidence score for each
+detection and attach the timestamp.
+
+[SHOW: the Emotion Timeline tab on the coaching report]
+
+The result is the emotion timeline you saw in the demo
+— each second mapped to an emotion, summarized into
+dominant emotion, nervous moments, and confident moments.
+
+Critically, the Vision analysis runs in parallel with
+the Gemini pipeline on the server. Both start at the
+same time. Since Cloud Vision processes twenty small
+JPEG frames while Gemini processes a full video file,
+Vision almost always finishes first — so it adds
+nearly zero extra time to the total analysis duration.
+
+─────────────────────────────────────────────────────────
+SLIDE 8 — Google Gemini
+─────────────────────────────────────────────────────────
+
+The Gemini API is the core of VocalIQ. We use
+Gemini 2.5 Flash through a two-pass chained pipeline.
+
+Let me explain why we designed it this way.
+
+A naive approach sends the video to Gemini with one
+prompt asking for everything at once. The problem is
+that Gemini produces generic, surface-level advice
+when asked too many things simultaneously.
+
+We wanted coaching that is grounded in what the
+speaker actually did — specific to their recording,
+not a template response.
+
+[SHOW: the coaching report on screen]
+
+In Pass 1, we upload the video file to the Gemini
+File API — a dedicated endpoint for large media files.
+We then send a structured prompt asking Gemini to
+act as a speech assessment engine and return JSON.
+
+That JSON contains the overall score from zero to ten,
+five sub-scores across content clarity, emotional
+delivery, vocal confidence, pacing, and audience
+engagement, the emotion Gemini detected versus the
+emotion needed for that scenario, the speaker's words
+per minute, and a full timestamped transcript broken
+into segments.
+
+[POINT to Overview and Transcript tabs]
+
+Everything on the Overview and Transcript tabs
+came from Pass 1.
+
+Pass 2 takes the entire Pass 1 JSON output and
+injects it as context into a second prompt. We
+tell Gemini — here is what you observed. Now act
+as a personal speaking coach and build a detailed
+improvement plan based specifically on these findings.
+
+Because Pass 2 has Pass 1's analysis as its starting
+point, the coaching is grounded in what was actually
+observed. It returns detailed tip cards with titles,
+explanations, exercises, and better phrasing examples.
+It returns vocal control data with current versus target
+WPM, tone feedback, breath control, and pause technique.
+It returns strengths to keep and a seven-day practice plan.
+
+[POINT to Tips and Vocal Control tabs]
+
+The Tips and Vocal Control tabs are entirely Pass 2 output.
+
+The key insight is that Pass 2 cannot hallucinate generic
+advice — it is forced to respond to what Pass 1 actually
+found. That's what makes the output genuinely useful.
+
+─────────────────────────────────────────────────────────
+SLIDE 9 — Google Analytics
+─────────────────────────────────────────────────────────
+
+VocalIQ uses Google Analytics 4 at two separate levels
+— the frontend and the backend — and I want to explain
+both because they work differently.
+
+On the frontend, we load the gtag.js library in
+index.html. We also built a custom analytics.js module
+with trackPageView and trackEvent functions.
+
+A PageViewTracker component inside React Router calls
+trackPageView on every navigation — so every page in
+the single-page app is tracked as a separate page view.
+
+We fire custom events at every meaningful user action.
+Login events when OAuth completes. session_submitted
+when a user clicks Analyze. session_complete when
+analysis finishes. And report_tab_viewed with the tab
+name every time a user switches tabs on the report.
+
+[OPEN: analytics.google.com → Reports → Realtime]
+
+This is the GA4 Realtime dashboard. It shows active
+users right now and which events are firing. If we
+use the app while this is open, events appear here
+in real time.
+
+[OPEN: Reports → Engagement → Events]
+
+The Events report shows every custom event we've
+tracked, how many times it fired, and how many unique
+users triggered it. session_submitted and
+session_complete together tell us our completion rate.
+report_tab_viewed tells us which parts of the report
+users actually read.
+
+Now for the backend analytics. We built an analytics
+service on the Express server that uses the GA4
+Measurement Protocol — a special HTTP API that lets
+your server send events directly to Google Analytics
+independent of any browser.
+
+We fire two server-side events. A login event right
+after the JWT is issued — confirming the OAuth flow
+completed on the backend. And a session_analyzed event
+after the Firestore write — including the overall score,
+language, mode, dominant emotion from Cloud Vision,
+and the number of emotion frames detected.
+
+This means even if a user closes their browser before
+the result loads, we still have a full server-side
+record that the analysis completed.
+
+─────────────────────────────────────────────────────────
+SLIDE 10 — Google Cloud Logging
+─────────────────────────────────────────────────────────
+
+For logging, we use Google Cloud Logging through
+Cloud Run's built-in log collection.
+
+Every console.log, console.warn, and console.error
+from our Node.js process is automatically captured
+by Cloud Run and forwarded to Google Cloud Logging
+with a timestamp and severity level.
+
+We follow a strict naming convention — every log
+statement starts with a module name in square brackets.
+This makes filtering trivial.
+
+[OPEN: console.cloud.google.com → Cloud Run → vocaliq → Logs]
+
+Here is the live log stream. Let me filter by
+the coaching prefix.
+
+[TYPE: [coaching] in the filter]
+
+You can see every analysis — when it started,
+which user, which mode, and when it completed.
+
+[CHANGE filter to: [vision]]
+
+Here are the Cloud Vision logs — how many frames
+were received, how many were processed, and the
+emotion summary that was built.
+
+[CHANGE filter to: [photos]]
+
+Here are the Google Drive logs — when videos were
+fetched, which files were listed, and when videos
+were downloaded.
+
+[OPEN: console.cloud.google.com → Logging → Logs Explorer]
+
+For advanced querying, the Logs Explorer lets us
+write structured queries. For example, filtering to
+error-level logs only helps us quickly find any
+failures across the entire pipeline.
+
+This setup gives us full observability from the
+moment a user submits a video to the moment
+their session is saved.
+
+─────────────────────────────────────────────────────────
+SLIDE 11 — Summary
+─────────────────────────────────────────────────────────
+
+That brings us to our final slide.
+
+Let me start with the notable challenges we overcame.
+
+The first was the Google Photos Library API deprecation.
+We originally implemented the social media video picker
+using the Google Photos Library API with the
+photoslibrary.readonly scope. During testing we
+discovered that Google deprecated this scope for
+projects created after May 2024. Our Cloud Run project
+was new enough to be affected. We diagnosed this by
+reading the API error logs, confirmed it via token
+introspection, and switched to the Google Drive API —
+which provides the same video browsing functionality
+and is fully available for new projects.
+
+The second challenge was integrating Cloud Vision
+without adding latency to the user experience. The
+Gemini pipeline already takes 30 to 90 seconds.
+We solved this by running Cloud Vision in parallel
+with Gemini using Promise.all — both pipelines
+start simultaneously, so the total analysis time
+does not increase.
+
+The third was an Express 5 breaking change that
+caused startup crashes until we replaced the
+wildcard route syntax.
+
+The fourth was Application Default Credentials —
+our code tried to load a key file that doesn't
+exist on Cloud Run, crashing the server until
+we added the conditional fallback.
+
+Looking ahead, the most impactful next steps for
+VocalIQ would be a progress tracking chart showing
+score improvement across sessions over time, real-time
+feedback during recording using WebSockets, and a
+mobile-optimized recording experience.
+
+What we learned from building this project:
+
+Chaining AI prompts dramatically improves quality.
+Pass 2 is far more specific than any single-prompt
+approach because it is grounded in Pass 1's findings.
+
+API deprecations are a real-world engineering concern.
+You can have correct code, correct tokens, and correct
+scopes — and still have a feature fail because the API
+itself was restricted. Knowing how to read error logs,
+introspect tokens, and find alternative approaches is
+an essential engineering skill.
+
+Cloud Run with Application Default Credentials is the
+correct pattern for server-side Google API access.
+Never put service account key files in Docker images.
+
+And the GA4 Measurement Protocol is a powerful tool
+most developers skip — server-side event tracking
+gives a far more accurate picture of user behavior
+than frontend analytics alone.
+
+Thank you to Professor Lynne Grewe for the guidance
+throughout this project. We hope VocalIQ demonstrates
+not just that we can build a full-stack application,
+but that we thought carefully about architecture,
+made real engineering decisions, and handled
+real-world problems along the way.
+
+We are Abhinay Konuri and Samuel Paul Chetty.
+
+Thank you for watching.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+END OF SCRIPT
+Estimated total time: 15–18 minutes
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

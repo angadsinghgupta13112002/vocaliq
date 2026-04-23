@@ -1,0 +1,234 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+VOCALIQ — AI SPEAKING COACH
+CS651 Web Application Development | Project 2
+Angaddeep Singh Gupta
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+─────────────────────────────────────────────────────────
+SLIDE 1 — TITLE SLIDE
+─────────────────────────────────────────────────────────
+Title:    VocalIQ — AI Speaking Coach
+Subtitle: CS651 Project 2 | Angaddeep Singh Gupta
+Live App: https://vocaliq-956080638663.us-central1.run.app
+GitHub:   https://github.com/angadsinghgupta13112002/vocaliq
+
+─────────────────────────────────────────────────────────
+SLIDE 2 — THE PROBLEM
+─────────────────────────────────────────────────────────
+Title: The Problem
+
+• Most people never get real feedback on how they speak
+• Public speaking anxiety affects 75% of the population
+• Human speaking coaches cost $100–$300/hr
+• No accessible, instant, personalized tool existed
+
+"You can't improve what you can't measure."
+
+─────────────────────────────────────────────────────────
+SLIDE 3 — THE SOLUTION
+─────────────────────────────────────────────────────────
+Title: VocalIQ — Your AI Speaking Coach
+
+• Record or upload a speech → Get a full coaching report in under 90 seconds
+• Powered by Google Gemini 2.5 Flash
+• Scores: Content, Delivery, Confidence, Pacing, Engagement
+• Timestamped transcript + improvement exercises + practice plan
+• Works for: job interviews, presentations, sales pitches, lectures
+
+─────────────────────────────────────────────────────────
+SLIDE 4 — TECH STACK
+─────────────────────────────────────────────────────────
+Title: Technology Stack
+
+Frontend:
+  • React 19 + Vite | React Router | react-hot-toast
+
+Backend:
+  • Node.js 20 + Express 5 | JWT authentication
+
+Google Services:
+  • Google OAuth 2.0      → Sign in with Google
+  • Gemini 2.5 Flash      → AI speech analysis
+  • Cloud Firestore       → User & session data
+  • Google Cloud Storage  → Video/audio files
+  • Google Cloud Run      → Containerized deployment
+  • Google Analytics GA4  → Frontend + backend events
+
+─────────────────────────────────────────────────────────
+SLIDE 5 — ARCHITECTURE DIAGRAM
+─────────────────────────────────────────────────────────
+Title: System Architecture
+
+[Draw this diagram in Google Slides]
+
+  Browser (React)
+       ↕  JWT
+  Express API (Cloud Run)
+    ├── Google OAuth 2.0
+    ├── Gemini File API ──→ Pass 1 ──→ Pass 2
+    ├── Cloud Firestore (sessions + users)
+    ├── Google Cloud Storage (video/audio)
+    └── GA4 Measurement Protocol (server events)
+
+─────────────────────────────────────────────────────────
+SLIDE 6 — KEY FEATURE: TWO-PASS AI PIPELINE
+─────────────────────────────────────────────────────────
+Title: Two-Pass Gemini Coaching Pipeline
+
+PASS 1 — Assessment
+  Input:  Video/audio file (via Gemini File API)
+  Output: Overall score, 5 sub-scores, emotion, WPM,
+          transcript with timestamps, improvement tips
+
+PASS 2 — Deep Coaching
+  Input:  Pass 1 JSON results as context
+  Output: Detailed tip cards with exercises,
+          vocal control breakdown, practice plan
+
+Why two passes?
+  → Pass 1 grounds Pass 2 in facts → better, more specific coaching
+  → Avoids hallucinated generic advice
+
+─────────────────────────────────────────────────────────
+SLIDE 7 — GOOGLE AUTHENTICATION
+─────────────────────────────────────────────────────────
+Title: Authentication — Google OAuth 2.0 + JWT
+
+Flow:
+  1. User clicks "Sign in with Google"
+  2. Server redirects to Google consent screen
+  3. Google returns auth code → server exchanges for user info
+  4. Server upserts user doc in Firestore
+  5. Server issues signed JWT (7-day expiry)
+  6. Client stores JWT in localStorage
+  7. All API requests send "Authorization: Bearer <token>"
+
+Security:
+  • Access token NOT stored (not needed server-side)
+  • JWT verified by authMiddleware on every protected route
+
+─────────────────────────────────────────────────────────
+SLIDE 8 — GOOGLE DATABASE (FIRESTORE)
+─────────────────────────────────────────────────────────
+Title: Database — Cloud Firestore
+
+Two collections:
+
+users/
+  └── {uid}
+        uid, displayName, email, photoURL,
+        provider, updatedAt
+
+coaching_sessions/
+  └── {uid}_{timestamp}
+        userId, sessionId, mediaUrl, mode, context,
+        language, overallScore, scoreBreakdown,
+        transcript, improvementTips, detailedTips,
+        vocalControl, strengthsToKeep, practicePlan,
+        createdAt
+
+Access model: All reads/writes via server only (JWT-protected API)
+Never exposed to client directly
+
+─────────────────────────────────────────────────────────
+SLIDE 9 — COACHING REPORT DEMO
+─────────────────────────────────────────────────────────
+Title: Coaching Report — What You Get
+
+[Insert screenshot of CoachingReport page here]
+
+4 Tabs:
+  Overview      → Score ring + sub-scores + top tips + strengths
+  Transcript    → Timestamped speech transcript
+  Tips          → Detailed tip cards with exercises + better phrasing
+  Vocal Control → Pacing (WPM), tone, breath, pause technique
+
+─────────────────────────────────────────────────────────
+SLIDE 10 — ANALYTICS + LOGGING
+─────────────────────────────────────────────────────────
+Title: Analytics & Logging
+
+Google Analytics 4 (GA4) — Measurement ID: G-SN3LE9Y5RT
+
+Frontend events (gtag.js):
+  • page_view (every route change)
+  • login (Google OAuth success)
+  • session_submitted (on analyze click)
+  • session_complete (after AI returns)
+  • report_tab_viewed (each tab click)
+
+Backend events (Measurement Protocol):
+  • login (after JWT issued)
+  • session_analyzed (after Firestore save, includes score)
+
+Cloud Run Logging:
+  • All server events log to Cloud Logging via stdout
+  • Prefix format: [coaching], [gemini], [storage], [analytics]
+
+─────────────────────────────────────────────────────────
+SLIDE 11 — DEPLOYMENT
+─────────────────────────────────────────────────────────
+Title: Deployment — Google Cloud Run
+
+• Multi-stage Docker build:
+  Stage 1: node:20-alpine → build React app (npm run build)
+  Stage 2: node:20-alpine → copy client/dist + server, run Express
+
+• Cloud Run serves React static files AND the API on same origin
+  → /api/*  routes → Express handlers
+  → everything else → React index.html (client-side routing)
+
+• Application Default Credentials (ADC):
+  → No service account key file in Docker image
+  → Cloud Run service account has Firestore + GCS + Gemini roles
+
+• Live URL: https://vocaliq-956080638663.us-central1.run.app
+
+─────────────────────────────────────────────────────────
+SLIDE 12 — LESSONS LEARNED
+─────────────────────────────────────────────────────────
+Title: Lessons Learned
+
+• Express 5 breaking change: app.get("*") → must use app.use()
+• Cloud Run reserves PORT — can't set it as env var
+• ADC vs key files: never commit secrets; use ADC on Cloud Run
+• Vite bakes API URLs at build time — need .env.production
+• GA4 backend events need Measurement Protocol (not gtag.js)
+• Two-pass Gemini prompting produces dramatically better coaching
+
+─────────────────────────────────────────────────────────
+SLIDE 13 — THANK YOU / Q&A
+─────────────────────────────────────────────────────────
+Title: Thank You!
+
+VocalIQ — AI Speaking Coach
+🌐 https://vocaliq-956080638663.us-central1.run.app
+🔗 https://github.com/angadsinghgupta13112002/vocaliq
+
+Angaddeep Singh Gupta
+CS 651: Web Systems
+California State University, East Bay
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+DEMO VIDEO SCRIPT (quick reference)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VIDEO 1 — App Demo (~3-5 min)
+  00:00  Open live URL, show landing page
+  00:30  Click "Sign in with Google", complete OAuth
+  01:00  Show Session Setup — fill in scenario/audience/goal, pick Video mode
+  01:30  Click Start Recording, speak for 60-90 seconds
+  03:00  Click Analyze — show progress overlay (all 5 steps)
+  04:00  Walk through report: Overview → Transcript → Tips → Vocal Control
+  05:30  Go to Dashboard, show session history
+
+VIDEO 2 — Technical Walkthrough (~3-5 min)
+  00:00  Show GitHub repo and commit history
+  00:30  Walk through folder structure (client/ + server/)
+  01:00  Show geminiCoachingService.js — explain two-pass chain
+  02:00  Show authController.js — OAuth + JWT
+  02:30  Show Firestore console — users + coaching_sessions collections
+  03:00  Show GA4 Real-Time dashboard — events firing live
+  03:30  Show Cloud Run logs — prefixed log lines
+  04:00  Show Dockerfile — multi-stage build
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

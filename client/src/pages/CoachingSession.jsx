@@ -3,28 +3,50 @@ import { useLocation, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Navbar from "../components/Navbar";
 import VideoRecorder from "../components/VideoRecorder";
-import { analyzeSession } from "../services/api";
+import GooglePhotosPicker from "../components/GooglePhotosPicker";
+import { analyzeSession, downloadPhotosVideo } from "../services/api";
+import { extractFrames } from "../utils/frameExtractor";
 import { trackEvent } from "../utils/analytics";
 
 const STEPS = [
+  "Extracting frames for emotion analysis...",
   "Uploading to Gemini File API...",
   "Gemini processing your video...",
   "Pass 1: Analyzing speech, emotions, delivery...",
   "Pass 2: Building personalized coaching plan...",
+  "Running Cloud Vision emotion detection...",
   "Saving your session...",
 ];
 
 const CoachingSession = () => {
   const { state }  = useLocation();
   const navigate   = useNavigate();
-  const context    = state?.context || {};
-  const mode       = context.mode || "video";
+  const context         = state?.context || {};
+  const mode            = context.mode || "video";
 
-  const [blob,      setBlob]      = useState(null);
-  const [file,      setFile]      = useState(null); // for upload mode
-  const [analyzing, setAnalyzing] = useState(false);
-  const [stepIdx,   setStepIdx]   = useState(0);
+  const [blob,              setBlob]              = useState(null);
+  const [file,              setFile]              = useState(null); // for local upload
+  const [analyzing,         setAnalyzing]         = useState(false);
+  const [stepIdx,           setStepIdx]           = useState(0);
+  const [showPhotosPicker,  setShowPhotosPicker]  = useState(false);
+  const [photosVideoName,   setPhotosVideoName]   = useState(null); // name of selected photos video
   const stepTimer = useRef(null);
+
+  // Called when user picks a video from the Google Photos picker
+  const handlePhotosVideoSelected = async ({ videoUrl, filename }) => {
+    setShowPhotosPicker(false);
+    const downloadToast = toast.loading(`Downloading "${filename}" from Google Photos…`);
+    try {
+      const videoBlob = await downloadPhotosVideo(videoUrl);
+      // Create a File object so it behaves identically to a local file upload
+      const videoFile = new File([videoBlob], filename || "photos_video.mp4", { type: "video/mp4" });
+      setFile(videoFile);
+      setPhotosVideoName(filename);
+      toast.success("Video ready for analysis!", { id: downloadToast });
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to download from Google Photos.", { id: downloadToast });
+    }
+  };
 
   const handleSubmit = async () => {
     const mediaBlob = blob || file;
@@ -34,20 +56,37 @@ const CoachingSession = () => {
     setStepIdx(0);
     trackEvent("session_submitted", { mode, scenario: context.scenario || "General" });
 
-    // Fake progress steps (each ~15 seconds) while API runs
+    // Fake progress steps (each ~12 seconds) while API runs
     stepTimer.current = setInterval(() => {
       setStepIdx(i => (i < STEPS.length - 1 ? i + 1 : i));
-    }, 15000);
+    }, 12000);
 
     try {
+      // ── Step 1: Extract frames for Cloud Vision ────────────────────────
+      // Only for video modes — skipped for audio-only sessions
+      let framesJson = null;
+      if (mode !== "audio") {
+        try {
+          const frames = await extractFrames(mediaBlob, 3, 20, 0.7);
+          if (frames.length > 0) {
+            framesJson = JSON.stringify(frames);
+            console.log(`[session] Extracted ${frames.length} frames for Vision analysis`);
+          }
+        } catch (frameErr) {
+          // Non-fatal — coaching still works without emotion timeline
+          console.warn("[session] Frame extraction failed:", frameErr.message);
+        }
+      }
+
+      // ── Step 2: Build multipart form data ─────────────────────────────
       const formData = new FormData();
       const ext      = mode === "audio" ? "webm" : "webm";
-      const type     = mode === "audio" ? "audio/webm" : "video/webm";
       formData.append("media",    mediaBlob, `recording.${ext}`);
       formData.append("scenario", context.scenario || "General presentation");
       formData.append("audience", context.audience || "General audience");
       formData.append("goal",     context.goal     || "Communicate effectively");
       formData.append("mode",     mode);
+      if (framesJson) formData.append("frames", framesJson);
 
       const res = await analyzeSession(formData);
       clearInterval(stepTimer.current);
@@ -66,7 +105,7 @@ const CoachingSession = () => {
 
   const handleFileUpload = (e) => {
     const f = e.target.files?.[0];
-    if (f) setFile(f);
+    if (f) { setFile(f); setPhotosVideoName(null); }
   };
 
   return (
@@ -119,23 +158,58 @@ const CoachingSession = () => {
             {/* Left: recorder or uploader */}
             <div>
               {mode === "upload" ? (
-                <div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+                  {/* Local file drop zone */}
                   <label
                     className="dropzone"
                     style={{ display: "block", cursor: "pointer" }}
                     onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add("dragover"); }}
                     onDragLeave={e => e.currentTarget.classList.remove("dragover")}
-                    onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove("dragover"); const f = e.dataTransfer.files?.[0]; if (f) setFile(f); }}
+                    onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove("dragover"); const f = e.dataTransfer.files?.[0]; if (f) { setFile(f); setPhotosVideoName(null); } }}
                   >
                     <input type="file" accept="video/*,audio/*" style={{ display: "none" }} onChange={handleFileUpload} />
                     <div style={{ fontSize: 32, marginBottom: 12 }}>📁</div>
-                    <p style={{ fontWeight: 600, color: "white", marginBottom: 4 }}>{file ? file.name : "Drop your video here"}</p>
-                    <p className="text-muted text-xs">{file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : "MP4, WebM, MOV · max 500 MB · click to browse"}</p>
+                    <p style={{ fontWeight: 600, color: "white", marginBottom: 4 }}>
+                      {photosVideoName
+                        ? `📷 ${photosVideoName}`
+                        : file
+                        ? file.name
+                        : "Drop your video here"}
+                    </p>
+                    <p className="text-muted text-xs">
+                      {file
+                        ? `${(file.size / 1024 / 1024).toFixed(1)} MB`
+                        : "MP4, WebM, MOV · max 500 MB · click to browse"}
+                    </p>
                   </label>
 
+                  {/* Google Photos button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPhotosPicker(true)}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      gap: 8, padding: "10px 16px",
+                      background: "#1e293b", border: "1px solid #334155",
+                      borderRadius: 10, color: "#cbd5e1", cursor: "pointer",
+                      fontSize: 14, fontWeight: 500, transition: "border-color .2s",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.borderColor = "#6366f1"}
+                    onMouseLeave={e => e.currentTarget.style.borderColor = "#334155"}
+                  >
+                    <span style={{ fontSize: 18 }}>📷</span>
+                    Browse Google Photos
+                  </button>
+
+                  {/* Video preview */}
                   {file && (
-                    <div style={{ marginTop: 12 }}>
-                      <video src={URL.createObjectURL(file)} controls style={{ width: "100%", borderRadius: 12, background: "#000" }} />
+                    <div style={{ marginTop: 4 }}>
+                      <video
+                        src={URL.createObjectURL(file)}
+                        controls
+                        style={{ width: "100%", borderRadius: 12, background: "#000" }}
+                      />
                     </div>
                   )}
                 </div>
@@ -162,8 +236,9 @@ const CoachingSession = () => {
 
               <div className="card-sm">
                 <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
-                  <strong style={{ color: "var(--text)" }}>Two-pass AI analysis:</strong><br/>
-                  Pass 1 assesses your speech. Pass 2 generates a personalized coaching plan using Pass 1's findings.
+                  <strong style={{ color: "var(--text)" }}>Two-pass AI + Emotion Analysis:</strong><br/>
+                  Gemini analyzes your speech in two passes. Cloud Vision tracks facial expressions
+                  frame-by-frame to show when you looked nervous or confident.
                 </p>
                 <p className="text-xs text-muted">⏱ Takes 30–90 seconds after submission</p>
               </div>
@@ -181,6 +256,13 @@ const CoachingSession = () => {
           </div>
         )}
       </div>
+      {/* Google Photos picker modal */}
+      {showPhotosPicker && (
+        <GooglePhotosPicker
+          onVideoSelected={handlePhotosVideoSelected}
+          onClose={() => setShowPhotosPicker(false)}
+        />
+      )}
     </>
   );
 };

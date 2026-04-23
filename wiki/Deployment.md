@@ -56,6 +56,7 @@ gcloud run deploy vocaliq \
   --set-env-vars "JWT_SECRET=<secret>" \
   --set-env-vars "CLIENT_URL=https://vocaliq-956080638663.us-central1.run.app" \
   --set-env-vars "GOOGLE_REDIRECT_URI=https://vocaliq-956080638663.us-central1.run.app/api/auth/google/callback" \
+  --set-env-vars "GOOGLE_PHOTOS_REDIRECT_URI=https://vocaliq-956080638663.us-central1.run.app/api/auth/google/photos/callback" \
   --project auraboard-492122 --quiet
 ```
 
@@ -71,6 +72,7 @@ VocalIQ uses **Application Default Credentials (ADC)** on Cloud Run. The service
 |---|---|
 | `roles/datastore.user` | Read/write Firestore sessions and users |
 | `roles/storage.objectAdmin` | Upload videos to GCS |
+| `roles/cloudvision.user` | Call Cloud Vision Face Detection API |
 
 Gemini API is accessed via API key (`GEMINI_API_KEY`) — no additional IAM role needed.
 

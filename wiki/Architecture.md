@@ -13,14 +13,15 @@ Browser (React SPA)
 │   │  Express 5  (Node.js 20)  │   │
 │   │  ├── /api/auth            │   │
 │   │  ├── /api/coaching        │   │
+│   │  ├── /api/photos          │   │
 │   │  └── /public (React SPA)  │   │
 │   └───────────────────────────┘   │
 └────────────┬──────────────────────┘
              │
-      ┌──────┼──────────────┐
-      ▼      ▼              ▼
-  Firestore  GCS        Gemini File API
-  (sessions) (videos)   (2-pass analysis)
+      ┌──────┼──────────────┬──────────────┐
+      ▼      ▼              ▼              ▼
+  Firestore  GCS        Gemini File API  Cloud Vision
+  (sessions) (videos)   (2-pass analysis) (emotion frames)
 ```
 
 The React SPA and the Express API are **served from the same Cloud Run container**. In production, `VITE_API_URL=/api` so all API calls are same-origin (no CORS overhead).
@@ -31,37 +32,41 @@ The React SPA and the Express API are **served from the same Cloud Run container
 
 ```
 1. User records/uploads media in browser
+   frameExtractor.js extracts 1 JPEG frame every 3s (Canvas API, client-side)
         │
 2. POST /api/coaching/analyze (multipart/form-data)
    │  Auth middleware verifies JWT
    │  Rate limiter (5 req / 15 min)
    │  Multer validates MIME + size (≤500 MB)
+   │  Body includes: frames[] JSON string (base64 JPEGs)
         │
 3. coachingController.analyzeSession()
-   ├── storageService.uploadVideo()   → GCS  videos/{uid}/{ts}.webm
-   └── geminiCoachingService.analyze()
-            │
-       ┌────▼──────────────────────────────┐
-       │  PASS 1 — Assessment              │
-       │  Upload video to Gemini File API  │
-       │  Poll until state = ACTIVE        │
-       │  generateContent(fileUri)         │
-       │  → language, overallScore,        │
-       │    scoreBreakdown, transcript[],  │
-       │    emotionDetected, wpm, tips     │
-       └────────────┬──────────────────────┘
-                    │
-       ┌────────────▼──────────────────────┐
-       │  PASS 2 — Deep Coaching           │
+   Runs all three in parallel via Promise.all:
+   ├── storageService.uploadVideo()       → GCS  videos/{uid}/{ts}.webm
+   ├── geminiCoachingService.analyze()    → Gemini File API (two-pass)
+   └── visionService.analyzeFrames()     → Cloud Vision Face Detection
+            │                                       │
+       ┌────▼──────────────────────────────┐   ┌───▼────────────────────────────┐
+       │  PASS 1 — Assessment              │   │  Cloud Vision                  │
+       │  Upload video to Gemini File API  │   │  Batch frames in groups of 5   │
+       │  Poll until state = ACTIVE        │   │  Face Detection per frame      │
+       │  generateContent(fileUri)         │   │  joy/sorrow/anger/surprise     │
+       │  → language, overallScore,        │   │  → emotion label + confidence  │
+       │    scoreBreakdown, transcript[],  │   │    per second timestamp        │
+       │    emotionDetected, wpm, tips     │   └───────────────┬────────────────┘
+       └────────────┬──────────────────────┘                   │
+                    │                           summarizeEmotionTimeline()
+       ┌────────────▼──────────────────────┐   → dominantEmotion, nervousSeconds,
+       │  PASS 2 — Deep Coaching           │     confidentSeconds, emotionCounts
        │  Feed Pass 1 JSON as context      │
        │  generateContent(Pass1 JSON)      │
        │  → detailedTips[], vocalControl,  │
        │    strengthsToKeep[], practicePlan│
        └────────────┬──────────────────────┘
                     │
-4. Merge Pass 1 + Pass 2 → save to Firestore coaching_sessions/{sessionId}
+4. Merge Pass 1 + Pass 2 + emotionTimeline → save to Firestore coaching_sessions/{sessionId}
         │
-5. Return { success: true, sessionId } to client
+5. Return { success: true, sessionId, data } to client
         │
 6. Client navigates to /report/{sessionId}
 ```
@@ -76,43 +81,53 @@ vocaliq/
 │   ├── src/
 │   │   ├── components/
 │   │   │   ├── Navbar.jsx
-│   │   │   ├── ScoreChart.jsx       # Recharts line chart
-│   │   │   ├── ScoreRing.jsx        # SVG circular score
+│   │   │   ├── ScoreChart.jsx           # Recharts line chart
+│   │   │   ├── ScoreRing.jsx            # SVG circular score
 │   │   │   ├── TimestampedTranscript.jsx
-│   │   │   └── VideoRecorder.jsx    # MediaRecorder wrapper
+│   │   │   ├── VideoRecorder.jsx        # MediaRecorder wrapper
+│   │   │   ├── EmotionTimeline.jsx      # Cloud Vision emotion bar + summary
+│   │   │   └── GooglePhotosPicker.jsx   # Google Drive video picker modal
 │   │   ├── context/
-│   │   │   └── AuthContext.jsx      # JWT auth state + useAuth hook
+│   │   │   └── AuthContext.jsx          # JWT auth state + useAuth hook
 │   │   ├── pages/
 │   │   │   ├── LoginPage.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── SessionSetup.jsx     # Choose mode + context
-│   │   │   ├── CoachingSession.jsx  # Record/upload + submit
-│   │   │   └── CoachingReport.jsx   # 4-tab results view
+│   │   │   ├── Dashboard.jsx            # Session history + score progress
+│   │   │   ├── SessionSetup.jsx         # Choose mode + context
+│   │   │   ├── CoachingSession.jsx      # Record/upload + Drive picker + submit
+│   │   │   └── CoachingReport.jsx       # 5-tab results view incl. Recording tab
 │   │   ├── services/
-│   │   │   └── api.js               # Axios instance + helpers
+│   │   │   └── api.js                   # Axios instance + all API helpers
 │   │   └── utils/
-│   │       └── constants.js
-│   ├── .env                         # Local dev (VITE_API_URL)
-│   └── .env.production              # Production (VITE_API_URL=/api)
+│   │       ├── analytics.js             # GA4 trackEvent / trackPageView
+│   │       ├── constants.js
+│   │       └── frameExtractor.js        # Browser Canvas API frame extraction
+│   ├── .env                             # Local dev (VITE_API_URL)
+│   └── .env.production                  # Production (VITE_API_URL=/api)
 │
 ├── server/                     # Express API
 │   ├── config/
-│   │   └── firebase.js              # Firestore Admin SDK init (ADC / key file)
+│   │   └── firebase.js                  # Firestore Admin SDK init (ADC / key file)
 │   ├── controllers/
-│   │   ├── authController.js        # OAuth + JWT issuance
-│   │   └── coachingController.js    # Analyze, getSessions, getSession
+│   │   ├── authController.js            # OAuth + JWT issuance + Drive OAuth
+│   │   ├── coachingController.js        # Analyze, getSessions, getSession
+│   │   └── photosController.js          # Google Drive video list + download
 │   ├── middleware/
-│   │   ├── authMiddleware.js        # JWT verification → req.user
-│   │   └── errorHandler.js         # Global error → JSON response
+│   │   ├── authMiddleware.js            # JWT verification (header + query param)
+│   │   └── errorHandler.js             # Global error → JSON response
 │   ├── routes/
 │   │   ├── authRoutes.js
-│   │   └── coachingRoutes.js
+│   │   ├── coachingRoutes.js
+│   │   └── photosRoutes.js              # /api/photos/* endpoints
 │   ├── services/
-│   │   ├── geminiCoachingService.js # Two-pass Gemini chain
-│   │   ├── oauthService.js          # Google OAuth URL + token exchange
-│   │   └── storageService.js        # GCS upload (ADC / key file)
-│   ├── app.js                       # Express config + middleware stack
-│   └── server.js                    # HTTP server entry point
+│   │   ├── analyticsService.js          # GA4 Measurement Protocol
+│   │   ├── firestoreService.js          # Firestore CRUD helpers
+│   │   ├── geminiCoachingService.js     # Two-pass Gemini chain
+│   │   ├── googlePhotosService.js       # Google Drive API video fetch + download
+│   │   ├── oauthService.js              # Google OAuth URL + token exchange
+│   │   ├── storageService.js            # GCS upload (ADC / key file)
+│   │   └── visionService.js             # Cloud Vision Face Detection + emotion mapping
+│   ├── app.js                           # Express config + middleware stack
+│   └── server.js                        # HTTP server entry point
 │
 ├── Dockerfile                  # Multi-stage: build React → serve with Express
 ├── .dockerignore
@@ -128,12 +143,15 @@ Document ID = Google OAuth `uid`
 
 ```json
 {
-  "uid":         "string  — Google OAuth sub",
-  "displayName": "string",
-  "email":       "string",
-  "photoURL":    "string",
-  "provider":    "google",
-  "updatedAt":   "Timestamp"
+  "uid":                  "string — Google OAuth sub",
+  "displayName":          "string",
+  "email":                "string",
+  "photoURL":             "string",
+  "provider":             "google",
+  "photosAccessToken":    "string — Google Drive OAuth access token (set after Drive connect)",
+  "photosRefreshToken":   "string — Google Drive OAuth refresh token",
+  "photosConnectedAt":    "Timestamp — when Drive was connected",
+  "updatedAt":            "Timestamp"
 }
 ```
 
@@ -191,8 +209,21 @@ Document ID = `{uid}_{timestamp}`
   },
   "strengthsToKeep": ["string"],
   "practicePlan":    "string",
-  "videoUrl":        "string — GCS public URL",
-  "createdAt":       "Timestamp"
+  "mediaUrl":        "string — GCS public URL of the uploaded video/audio file",
+  "emotionTimeline": [
+    {
+      "second":     "number — timestamp of the frame",
+      "emotion":    "string — confident | nervous | anxious | frustrated | neutral | surprised",
+      "confidence": "number — 0.0 to 1.0"
+    }
+  ],
+  "emotionSummary": {
+    "dominantEmotion":  "string",
+    "emotionCounts":    "object — { confident: n, nervous: n, ... }",
+    "nervousSeconds":   ["number"],
+    "confidentSeconds": ["number"]
+  },
+  "createdAt": "Timestamp"
 }
 ```
 

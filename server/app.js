@@ -12,6 +12,7 @@ const rateLimit = require("express-rate-limit");
 
 const authRoutes     = require("./routes/authRoutes");
 const coachingRoutes = require("./routes/coachingRoutes");
+const photosRoutes   = require("./routes/photosRoutes");
 const errorHandler   = require("./middleware/errorHandler");
 
 const app = express();
@@ -25,6 +26,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
+// Trust Cloud Run's load balancer so express-rate-limit can read the real client IP
+// from the X-Forwarded-For header (required on Cloud Run / any reverse proxy).
+app.set("trust proxy", 1);
+
 // Rate limiter — 100 requests per 15 min per IP (protects Gemini API costs)
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });
 app.use("/api", apiLimiter);
@@ -32,6 +37,7 @@ app.use("/api", apiLimiter);
 // API Routes
 app.use("/api/auth",     authRoutes);
 app.use("/api/coaching", coachingRoutes);
+app.use("/api/photos",   photosRoutes);   // Google Photos video picker
 
 // Health check for Cloud Run
 app.get("/health", (req, res) => {

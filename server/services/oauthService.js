@@ -24,6 +24,50 @@ const getGoogleAuthUrl = () => {
 };
 
 /**
+ * getGooglePhotosAuthUrl - Builds a Google OAuth URL specifically for
+ * Google Photos access. Requests photoslibrary.readonly scope separately
+ * from the main login flow so users only grant Photos access when needed.
+ */
+const getGooglePhotosAuthUrl = () => {
+  const params = new URLSearchParams({
+    client_id:     process.env.GOOGLE_CLIENT_ID,
+    redirect_uri:  process.env.GOOGLE_PHOTOS_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI.replace("/callback", "/photos/callback"),
+    response_type: "code",
+    // Using drive.readonly instead of photoslibrary.readonly — Google deprecated
+    // photoslibrary.readonly for projects created after May 2024. Drive API is
+    // not restricted and allows listing + downloading video files.
+    scope:         "https://www.googleapis.com/auth/drive.readonly",
+    access_type:   "offline",
+    prompt:        "select_account consent",
+  });
+  return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+};
+
+/**
+ * exchangeGooglePhotosCode - Exchanges the Photos OAuth code for an access token.
+ * Returns the access token and refresh token for Google Photos API calls.
+ *
+ * @param {string} code - Authorization code from Google Photos OAuth callback
+ * @returns {Object}    - { accessToken, refreshToken }
+ */
+const exchangeGooglePhotosCode = async (code) => {
+  const tokenRes = await axios.post("https://oauth2.googleapis.com/token", {
+    code,
+    client_id:     process.env.GOOGLE_CLIENT_ID,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET,
+    redirect_uri:  process.env.GOOGLE_PHOTOS_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI.replace("/callback", "/photos/callback"),
+    grant_type:    "authorization_code",
+  });
+  // DEBUG: log the full token response to verify which scopes Google actually issued
+  console.log("[oauth] Photos token response scopes:", tokenRes.data.scope);
+  console.log("[oauth] Photos token response keys:", Object.keys(tokenRes.data));
+  return {
+    accessToken:  tokenRes.data.access_token,
+    refreshToken: tokenRes.data.refresh_token || null,
+  };
+};
+
+/**
  * exchangeGoogleCode - Exchanges OAuth code for access token and user info
  * @param {string} code - Authorization code from Google OAuth callback
  * @returns {Object} - { userInfo: { uid, displayName, email, photoURL }, accessToken }
@@ -92,4 +136,11 @@ const getInstagramAuthUrl = () => {
   return `https://api.instagram.com/oauth/authorize?${params}`;
 };
 
-module.exports = { getGoogleAuthUrl, exchangeGoogleCode, fetchUserPhotos, getInstagramAuthUrl };
+module.exports = {
+  getGoogleAuthUrl,
+  exchangeGoogleCode,
+  fetchUserPhotos,
+  getInstagramAuthUrl,
+  getGooglePhotosAuthUrl,
+  exchangeGooglePhotosCode,
+};

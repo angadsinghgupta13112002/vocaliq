@@ -73,6 +73,81 @@ Stateless logout — JWT is client-side. Server confirms the request; client mus
 
 ---
 
+### `GET /api/auth/google/photos` 🔒
+Redirects the authenticated user to Google OAuth to authorize Google Drive access (`drive.readonly` scope). The user's `uid` is encoded in the OAuth state parameter.
+
+**Response:** `302 Redirect` → Google OAuth consent screen
+
+---
+
+### `GET /api/auth/google/photos/callback`
+Handles the Google Drive OAuth callback. Exchanges the code for tokens, stores them in the user's Firestore document, and redirects back to the dashboard.
+
+**Response:** `302 Redirect` → `/dashboard?photosConnected=true`
+
+---
+
+### `GET /api/auth/google/photos/status` 🔒
+Returns whether the current user has connected Google Drive.
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "photosConnected": true,
+  "photosConnectedAt": { "_seconds": 1776487376, "_nanoseconds": 0 }
+}
+```
+
+---
+
+## Google Drive Routes — `/api/photos`
+
+### `GET /api/photos/videos` 🔒
+Returns up to 20 of the user's most recent video files from Google Drive.
+
+**Response `200`:**
+```json
+{
+  "success": true,
+  "videos": [
+    {
+      "id":           "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs",
+      "filename":     "interview_practice.mp4",
+      "url":          "https://www.googleapis.com/drive/v3/files/1Bxi...?alt=media",
+      "thumbnailUrl": "https://lh3.googleusercontent.com/...",
+      "createdAt":    "2026-04-20T14:30:00.000Z",
+      "size":         "52428800",
+      "mimeType":     "video/mp4"
+    }
+  ]
+}
+```
+
+**Response `403`:**
+```json
+{ "success": false, "error": "Google Photos not connected. Please authorize via /api/auth/google/photos" }
+```
+
+---
+
+### `POST /api/photos/download` 🔒 ⚠️ Rate limited (10 req / 15 min)
+Downloads a Google Drive video by URL and returns it as a binary `video/mp4` stream. Used by the frontend to pass the video through the coaching pipeline.
+
+**Request body:**
+```json
+{ "videoUrl": "https://www.googleapis.com/drive/v3/files/{fileId}?alt=media" }
+```
+
+**Response `200`:** Binary video stream (`Content-Type: video/mp4`)
+
+**Response `400`:**
+```json
+{ "success": false, "error": "Invalid Google Drive URL" }
+```
+
+---
+
 ## Coaching Routes — `/api/coaching`
 
 ### `POST /api/coaching/analyze` 🔒 ⚠️ Rate limited (5 req / 15 min)
@@ -87,6 +162,7 @@ Uploads a video or audio file, runs the two-pass Gemini analysis, saves the sess
 | `audience` | string | No | Target audience (e.g. "Hiring Manager"). Default: "General audience" |
 | `goal` | string | No | Coaching goal (e.g. "Build confidence"). Default: "Communicate effectively" |
 | `mode` | string | No | `"video"` or `"audio"`. Default: `"video"` |
+| `frames` | string | No | JSON string of `[{ second, base64 }]` frame array extracted client-side by `frameExtractor.js`. Required for Cloud Vision emotion analysis. Omit for audio-only sessions. |
 
 **Allowed MIME types:**
 `video/webm`, `video/mp4`, `video/quicktime`, `video/x-msvideo`, `video/mpeg`,

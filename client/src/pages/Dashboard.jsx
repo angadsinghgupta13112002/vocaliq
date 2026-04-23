@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 import Navbar from "../components/Navbar";
 import ScoreChart from "../components/ScoreChart";
@@ -16,8 +17,19 @@ const scoreColor = (s) => s >= 8 ? "var(--green)" : s >= 6 ? "var(--brand)" : s 
 const Dashboard = () => {
   const { user }                = useAuth();
   const navigate                = useNavigate();
+  const [searchParams]          = useSearchParams();
   const [sessions, setSessions] = useState([]);
   const [loading,  setLoading]  = useState(true);
+
+  // Show toast if redirected back from Google Photos OAuth
+  useEffect(() => {
+    if (searchParams.get("photosConnected")) {
+      toast.success("✅ Google Photos connected! Start a new session to browse your videos.", { duration: 5000 });
+    }
+    if (searchParams.get("photosError")) {
+      toast.error(`Google Photos error: ${searchParams.get("photosError")}`, { duration: 5000 });
+    }
+  }, []);
 
   useEffect(() => {
     getSessions()
@@ -105,19 +117,55 @@ const Dashboard = () => {
             )}
 
             {sessions.slice(0, 6).map((s) => (
-              <Link key={s.sessionId} to={`/report/${s.sessionId}`} className="session-item">
-                <div className="session-score-badge" style={{ background: `${scoreColor(s.overallScore)}22`, color: scoreColor(s.overallScore) }}>
+              <div key={s.sessionId} className="session-item" style={{ cursor: "default" }}>
+                <div
+                  className="session-score-badge"
+                  style={{ background: `${scoreColor(s.overallScore)}22`, color: scoreColor(s.overallScore), cursor: "pointer" }}
+                  onClick={() => navigate(`/report/${s.sessionId}`)}
+                >
                   {s.overallScore?.toFixed(1)}
                 </div>
-                <div className="session-info">
+                <div
+                  className="session-info"
+                  style={{ flex: 1, cursor: "pointer" }}
+                  onClick={() => navigate(`/report/${s.sessionId}`)}
+                >
                   <div className="session-scenario">{s.context?.scenario || "Session"}</div>
                   <div className="session-meta">
                     {fmt(s.createdAt)} · {s.mode === "audio" ? "Audio" : "Video"}
                     {s.language && ` · ${s.language}`}
                   </div>
                 </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
-              </Link>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {s.mediaUrl && (
+                    <button
+                      onClick={() => navigate(`/report/${s.sessionId}?tab=recording`)}
+                      title={s.mode === "audio" ? "Play recording" : "Watch recording"}
+                      style={{
+                        background: "rgba(79,110,247,.15)",
+                        border: "none",
+                        color: "var(--brand)",
+                        borderRadius: 6,
+                        padding: "4px 10px",
+                        cursor: "pointer",
+                        fontSize: 13,
+                        fontWeight: 700,
+                        lineHeight: 1,
+                      }}
+                    >
+                      ▶
+                    </button>
+                  )}
+                  <svg
+                    width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="var(--muted)" strokeWidth="2"
+                    style={{ cursor: "pointer", flexShrink: 0 }}
+                    onClick={() => navigate(`/report/${s.sessionId}`)}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
+                  </svg>
+                </div>
+              </div>
             ))}
           </div>
         </div>

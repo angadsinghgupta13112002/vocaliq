@@ -1,66 +1,113 @@
 /**
  * controllers/coachingController.js - VocalIQ Coaching Session Controller
  * Handles video/audio upload, runs the two-pass Gemini coaching chain,
+ * runs Cloud Vision face detection in parallel (for emotion timeline),
  * saves results to Firestore coaching_sessions, and returns the full report.
  */
 const { analyzeVideoWithGemini, analyzeAudioWithGemini } = require("../services/geminiCoachingService");
 const { uploadVideo, uploadAudio }                       = require("../services/storageService");
 const { setDocument, queryCollection, getDocument }      = require("../services/firestoreService");
 const { sendServerEvent }                                = require("../services/analyticsService");
+const { analyzeFrames, summarizeEmotionTimeline }        = require("../services/visionService");
 
 // ─── POST /api/coaching/analyze ─────────────────────────────────────────────
-// Accepts a video or audio file + context fields, runs the two-pass Gemini
-// chain, saves the session to Firestore, and returns the full coaching report.
+// Accepts a video or audio file + context fields + optional JSON frames array.
+// Runs the two-pass Gemini chain AND Cloud Vision face detection in parallel,
+// saves everything to Firestore coaching_sessions, returns the full report.
+//
+// Request body fields:
+//   scenario, audience, goal, mode  — coaching context
+//   frames  — JSON string of [{ second, base64 }] extracted by frameExtractor.js
+//             (only present for video/recorded modes — omit for audio-only)
 const analyzeSession = async (req, res) => {
   try {
     const { uid } = req.user;
-    const { scenario = "General presentation", audience = "General audience", goal = "Communicate effectively", mode = "video" } = req.body;
+    const {
+      scenario = "General presentation",
+      audience = "General audience",
+      goal     = "Communicate effectively",
+      mode     = "video",
+      frames: framesJson,          // Optional — JSON string of frame array
+    } = req.body;
     const context = { scenario, audience, goal };
 
     if (!req.file) {
       return res.status(400).json({ success: false, error: "No media file provided" });
     }
 
+    // Parse frames if provided — gracefully handle malformed JSON
+    let frames = [];
+    if (framesJson) {
+      try {
+        frames = JSON.parse(framesJson);
+        console.log(`[coaching] Received ${frames.length} frames for Vision analysis`);
+      } catch (_) {
+        console.warn("[coaching] Could not parse frames JSON — skipping Vision analysis");
+      }
+    }
+
     console.log(`[coaching] Starting ${mode} analysis for user ${uid}`);
 
-    // Upload to GCS for permanent storage + get analysis from Gemini
+    // ── Run Gemini + GCS upload + Cloud Vision in parallel ──────────────────
+    // Vision analysis runs concurrently with the (slower) Gemini pipeline,
+    // so it adds nearly zero latency to the overall response time.
+
     let mediaUrl;
     let analysisResult;
+    let emotionTimeline   = [];
+    let emotionSummary    = {};
 
     if (mode === "audio") {
+      // Audio mode: no frames — skip Vision entirely
       [mediaUrl, analysisResult] = await Promise.all([
         uploadAudio(req.file, uid),
         analyzeAudioWithGemini(req.file.buffer, context),
       ]);
     } else {
-      // For video: upload to GCS in parallel with Gemini File API upload
-      mediaUrl = await uploadVideo(req.file, uid);
-      analysisResult = await analyzeVideoWithGemini(req.file.buffer, req.file.mimetype || "video/webm", context);
+      // Video mode: run GCS upload, Gemini, and Vision concurrently
+      const visionPromise = frames.length > 0
+        ? analyzeFrames(frames).catch(err => {
+            console.warn("[coaching] Vision analysis failed (non-fatal):", err.message);
+            return [];
+          })
+        : Promise.resolve([]);
+
+      [mediaUrl, analysisResult, emotionTimeline] = await Promise.all([
+        uploadVideo(req.file, uid),
+        analyzeVideoWithGemini(req.file.buffer, req.file.mimetype || "video/webm", context),
+        visionPromise,
+      ]);
+
+      emotionSummary = summarizeEmotionTimeline(emotionTimeline);
+      console.log(`[coaching] Emotion summary: dominant=${emotionSummary.dominantEmotion}, frames=${emotionTimeline.length}`);
     }
 
     const { pass1, pass2 } = analysisResult;
     const sessionId = `${uid}_${Date.now()}`;
 
     const sessionData = {
-      userId:           uid,
+      userId:             uid,
       sessionId,
       mediaUrl,
       mode,
       context,
-      language:         pass1.language,
-      overallScore:     pass1.overallScore,
-      scoreBreakdown:   pass1.scoreBreakdown,
+      language:           pass1.language,
+      overallScore:       pass1.overallScore,
+      scoreBreakdown:     pass1.scoreBreakdown,
       scoreJustification: pass1.scoreJustification,
-      emotionDetected:  pass1.emotionDetected,
-      emotionNeeded:    pass1.emotionNeeded,
-      wpm:              pass1.wpm,
-      transcript:       pass1.transcript || [],
-      improvementTips:  pass1.improvementTips || [],
-      detailedTips:     pass2.detailedTips || [],
-      vocalControl:     pass2.vocalControl || {},
-      strengthsToKeep:  pass2.strengthsToKeep || [],
-      practicePlan:     pass2.practicePlan || "",
-      createdAt:        new Date(),
+      emotionDetected:    pass1.emotionDetected,
+      emotionNeeded:      pass1.emotionNeeded,
+      wpm:                pass1.wpm,
+      transcript:         pass1.transcript || [],
+      improvementTips:    pass1.improvementTips || [],
+      detailedTips:       pass2.detailedTips || [],
+      vocalControl:       pass2.vocalControl || {},
+      strengthsToKeep:    pass2.strengthsToKeep || [],
+      practicePlan:       pass2.practicePlan || "",
+      // Cloud Vision emotion timeline — new fields
+      emotionTimeline,     // Array of { second, emotion, confidence }
+      emotionSummary,      // { dominantEmotion, emotionCounts, nervousSeconds, confidentSeconds }
+      createdAt:          new Date(),
     };
 
     await setDocument("coaching_sessions", sessionId, sessionData);
@@ -70,8 +117,10 @@ const analyzeSession = async (req, res) => {
     sendServerEvent(uid, "session_analyzed", {
       mode,
       scenario,
-      language:     pass1.language     || "unknown",
-      overall_score: pass1.overallScore || 0,
+      language:        pass1.language            || "unknown",
+      overall_score:   pass1.overallScore         || 0,
+      emotion_frames:  emotionTimeline.length,
+      dominant_emotion: emotionSummary.dominantEmotion || "unknown",
     });
 
     res.json({ success: true, sessionId, data: sessionData });

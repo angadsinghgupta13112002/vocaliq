@@ -1,7 +1,9 @@
 /**
  * controllers/authController.js - Authentication Controller
  * Handles OAuth 2.0 authorization URL generation, token exchange,
- * JWT issuance, and Firestore user upsert for Google Photos and Instagram.
+ * JWT issuance, and Firestore user upsert for Google and Instagram.
+ * Also handles the separate Google Photos OAuth flow (photoslibrary.readonly scope)
+ * so users can pull their own videos into VocalIQ coaching sessions.
  * Author: Angaddeep Singh Gupta | CS651 Project 2
  */
 const jwt              = require("jsonwebtoken");
@@ -49,6 +51,93 @@ const googleCallback = async (req, res) => {
   }
 };
 
+// ── Google Photos OAuth ────────────────────────────────────────────────────
+
+/**
+ * googlePhotosLogin - Redirects user to Google OAuth consent for Photos access.
+ * This is a SEPARATE OAuth flow from the main Google login — it requests
+ * photoslibrary.readonly scope and always shows the consent screen (prompt=consent)
+ * so we reliably get a refresh token.
+ *
+ * The user must already be logged in (JWT required) before calling this endpoint
+ * so we know which Firestore user doc to attach the Photos token to.
+ */
+const googlePhotosLogin = (req, res) => {
+  // Embed the user's uid in the OAuth state param so the callback knows
+  // which Firestore user document to update with the Photos access token.
+  const state   = Buffer.from(JSON.stringify({ uid: req.user.uid })).toString("base64url");
+  const authUrl = oauthService.getGooglePhotosAuthUrl() + `&state=${state}`;
+  res.redirect(authUrl);
+};
+
+/**
+ * googlePhotosCallback - Exchanges the Photos authorization code for tokens,
+ * then stores them in Firestore on the user document so subsequent
+ * /api/photos/videos calls can use them.
+ */
+const googlePhotosCallback = async (req, res) => {
+  try {
+    const { code, state, error } = req.query;
+
+    // User denied the consent screen
+    if (error) {
+      return res.redirect(`${process.env.CLIENT_URL}/session?photosError=access_denied`);
+    }
+
+    // Decode the state to get the uid
+    let uid;
+    try {
+      ({ uid } = JSON.parse(Buffer.from(state, "base64url").toString("utf8")));
+    } catch (_) {
+      return res.status(400).json({ error: "Invalid OAuth state parameter" });
+    }
+
+    // Exchange code for access + refresh tokens
+    const { accessToken, refreshToken } = await oauthService.exchangeGooglePhotosCode(code);
+
+    // Store tokens in the user's Firestore document so future requests can reuse them
+    await db.collection("users").doc(uid).set({
+      photosAccessToken:  accessToken,
+      photosRefreshToken: refreshToken || null,
+      photosConnectedAt:  new Date(),
+    }, { merge: true });
+
+    console.log(`[auth] Google Photos connected for user: ${uid}`);
+
+    // Redirect back to the dashboard with a success flag.
+    // We can't redirect back to /session because the session context (scenario,
+    // audience, goal, mode) lives in React Router state which is lost after a
+    // full-page OAuth redirect. User re-enters the session from the dashboard.
+    res.redirect(`${process.env.CLIENT_URL}/dashboard?photosConnected=true`);
+  } catch (err) {
+    console.error("[auth] googlePhotosCallback error:", err.message);
+    res.redirect(`${process.env.CLIENT_URL}/dashboard?photosError=${encodeURIComponent(err.message)}`);
+  }
+};
+
+/**
+ * getPhotosStatus - Returns whether the current user has Google Photos connected.
+ * Frontend calls this on load to decide whether to show "Connect Google Photos"
+ * or the photos picker directly.
+ */
+const getPhotosStatus = async (req, res) => {
+  try {
+    const userDoc = await db.collection("users").doc(req.user.uid).get();
+    if (!userDoc.exists) return res.status(404).json({ error: "User not found" });
+
+    const data = userDoc.data();
+    res.json({
+      success:          true,
+      photosConnected:  !!data.photosAccessToken,
+      photosConnectedAt: data.photosConnectedAt || null,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// ── Instagram OAuth ────────────────────────────────────────────────────────
+
 // instagramLogin - Redirects user to Instagram OAuth consent screen
 const instagramLogin = (req, res) => {
   const authUrl = oauthService.getInstagramAuthUrl();
@@ -77,4 +166,14 @@ const logout = (req, res) => {
   res.json({ success: true, message: "Logged out successfully" });
 };
 
-module.exports = { googleLogin, googleCallback, instagramLogin, instagramCallback, getMe, logout };
+module.exports = {
+  googleLogin,
+  googleCallback,
+  googlePhotosLogin,
+  googlePhotosCallback,
+  getPhotosStatus,
+  instagramLogin,
+  instagramCallback,
+  getMe,
+  logout,
+};

@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import Navbar from "../components/Navbar";
 import ScoreRing from "../components/ScoreRing";
 import TimestampedTranscript from "../components/TimestampedTranscript";
+import EmotionTimeline from "../components/EmotionTimeline";
 import { getSession } from "../services/api";
 import { trackEvent } from "../utils/analytics";
 
@@ -47,11 +48,12 @@ const TipCard = ({ tip, index }) => {
 };
 
 const CoachingReport = () => {
-  const { id }     = useParams();
-  const navigate   = useNavigate();
-  const [session,  setSession]  = useState(null);
-  const [loading,  setLoading]  = useState(true);
-  const [activeTab, setActiveTab] = useState("overview");
+  const { id }          = useParams();
+  const navigate        = useNavigate();
+  const [searchParams]  = useSearchParams();
+  const [session,       setSession]  = useState(null);
+  const [loading,       setLoading]  = useState(true);
+  const [activeTab,     setActiveTab] = useState(searchParams.get("tab") || "overview");
 
   useEffect(() => {
     getSession(id)
@@ -135,12 +137,18 @@ const CoachingReport = () => {
         {/* Tabs */}
         <div className="tabs">
           {[
-            ["overview",    "Overview"],
-            ["transcript",  "Transcript & Timestamps"],
-            ["tips",        "Improvement Tips"],
-            ["vocal",       "Vocal Control"],
-          ].map(([id, label]) => (
-            <button key={id} className={`tab-btn${activeTab === id ? " active" : ""}`} onClick={() => { setActiveTab(id); trackEvent("report_tab_viewed", { tab: id }); }}>
+            ["overview",   "Overview"],
+            ["emotions",   "😊 Emotion Timeline"],
+            ["transcript", "Transcript & Timestamps"],
+            ["tips",       "Improvement Tips"],
+            ["vocal",      "Vocal Control"],
+            ...(s.mediaUrl ? [["recording", s.mode === "audio" ? "🎙️ Recording" : "📹 Recording"]] : []),
+          ].map(([tabId, label]) => (
+            <button
+              key={tabId}
+              className={`tab-btn${activeTab === tabId ? " active" : ""}`}
+              onClick={() => { setActiveTab(tabId); trackEvent("report_tab_viewed", { tab: tabId }); }}
+            >
               {label}
             </button>
           ))}
@@ -182,6 +190,23 @@ const CoachingReport = () => {
           </div>
         )}
 
+        {/* Tab: Emotion Timeline */}
+        {activeTab === "emotions" && (
+          <div className="card">
+            <h3 style={{ marginBottom: 20 }}>😊 Emotion Timeline — Cloud Vision Face Analysis</h3>
+            <EmotionTimeline
+              timeline={s.emotionTimeline || []}
+              summary={s.emotionSummary   || {}}
+            />
+            {(!s.emotionTimeline || s.emotionTimeline.length === 0) && (
+              <p className="text-muted text-sm" style={{ marginTop: 12 }}>
+                Emotion tracking is available for video sessions recorded or uploaded with
+                a clear front-facing view. Make sure your face is visible to the camera.
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Tab: Transcript */}
         {activeTab === "transcript" && (
           <TimestampedTranscript transcript={s.transcript || []} />
@@ -196,6 +221,55 @@ const CoachingReport = () => {
                 <h3 style={{ marginBottom: 10, color: "var(--brand)" }}>Your Practice Plan</h3>
                 <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>{s.practicePlan}</p>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab: Recording */}
+        {activeTab === "recording" && (
+          <div className="card" style={{ textAlign: "center" }}>
+            <h3 style={{ marginBottom: 20 }}>
+              {s.mode === "audio" ? "🎙️ Your Recording" : "📹 Your Recording"}
+            </h3>
+            {s.mediaUrl ? (
+              <>
+                {s.mode === "audio" ? (
+                  <audio
+                    controls
+                    src={s.mediaUrl}
+                    style={{ width: "100%", marginTop: 8, borderRadius: 8 }}
+                  />
+                ) : (
+                  <video
+                    controls
+                    crossOrigin="anonymous"
+                    src={s.mediaUrl}
+                    style={{ width: "100%", maxHeight: 500, borderRadius: 12, background: "#000", display: "block" }}
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      document.getElementById("video-fallback").style.display = "block";
+                    }}
+                  />
+                )}
+                <div id="video-fallback" style={{ display: "none", marginTop: 16, padding: "20px", background: "var(--bg)", borderRadius: 12 }}>
+                  <p className="text-muted" style={{ marginBottom: 12 }}>Unable to play inline. Open the video directly:</p>
+                  <a
+                    href={s.mediaUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary"
+                    style={{ textDecoration: "none", display: "inline-block" }}
+                  >
+                    ▶ Open Recording
+                  </a>
+                </div>
+                <p className="text-muted text-sm" style={{ marginTop: 16 }}>
+                  Recorded on {s.createdAt ? new Date(s.createdAt?._seconds ? s.createdAt._seconds * 1000 : s.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : "—"}
+                  {s.context?.scenario && ` · ${s.context.scenario}`}
+                </p>
+              </>
+            ) : (
+              <p className="text-muted">Recording not available for this session.</p>
             )}
           </div>
         )}
