@@ -42,4 +42,4 @@ React 19 + Vite · Express 5 · Node.js 20 · Google Gemini 2.5 Flash · Cloud V
 
 ## Authors
 
-Angaddeep Singh Gupta · Samuel Paul Chetty · Abhinay Konuri · Lasya Uma Sei Lingala
+Angaddeep Singh Gupta · Samuel Paul Chetty · Abhinay Konuri · Lasya Uma Sri Lingala
