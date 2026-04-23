@@ -46,6 +46,11 @@ const getUserVideos = async (accessToken) => {
       mimeType:     file.mimeType,
     }));
   } catch (err) {
+    if (err.response?.status === 401) {
+      const authErr = new Error("Drive access token expired");
+      authErr.isTokenExpired = true;
+      throw authErr;
+    }
     console.error("[photos] getUserVideos error:", err.response?.data || err.message);
     throw new Error("Failed to fetch videos from Google Drive. Please reconnect your account.");
   }
@@ -64,12 +69,19 @@ const downloadVideoBuffer = async (videoUrl, accessToken) => {
     console.log("[photos] Downloading video from Google Drive...");
     const res = await axios.get(videoUrl, {
       responseType: "arraybuffer",
-      headers: { Authorization: `Bearer ${accessToken}` },
-      timeout: 300000, // 5 min for large videos
+      headers:      { Authorization: `Bearer ${accessToken}` },
+      timeout:      300000, // 5 min for large videos
     });
     console.log(`[photos] Video downloaded — size: ${res.data.byteLength} bytes`);
     return Buffer.from(res.data);
   } catch (err) {
+    // Distinguish auth failures (expired token) from other errors
+    // so the controller can refresh the token and retry
+    if (err.response?.status === 401) {
+      const authErr  = new Error("Drive access token expired");
+      authErr.isTokenExpired = true;
+      throw authErr;
+    }
     console.error("[photos] downloadVideoBuffer error:", err.message);
     throw new Error("Failed to download video from Google Drive.");
   }

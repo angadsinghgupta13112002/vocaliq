@@ -136,6 +136,25 @@ const getInstagramAuthUrl = () => {
   return `https://api.instagram.com/oauth/authorize?${params}`;
 };
 
+/**
+ * refreshGoogleToken - Uses a stored refresh token to obtain a new access token.
+ * Called automatically when a Drive API request returns 401 (token expired).
+ *
+ * @param {string} refreshToken - The refresh token stored in Firestore
+ * @returns {string}            - New access token
+ */
+const refreshGoogleToken = async (refreshToken) => {
+  const res = await axios.post("https://oauth2.googleapis.com/token", {
+    client_id:     process.env.GOOGLE_CLIENT_ID,
+    client_secret: process.env.GOOGLE_CLIENT_SECRET,
+    refresh_token: refreshToken,
+    grant_type:    "refresh_token",
+  });
+  if (!res.data.access_token) throw new Error("Token refresh failed — no access_token returned");
+  console.log("[oauth] Access token refreshed successfully");
+  return res.data.access_token;
+};
+
 module.exports = {
   getGoogleAuthUrl,
   exchangeGoogleCode,
@@ -143,4 +162,5 @@ module.exports = {
   getInstagramAuthUrl,
   getGooglePhotosAuthUrl,
   exchangeGooglePhotosCode,
+  refreshGoogleToken,
 };
