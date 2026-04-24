@@ -1,8 +1,8 @@
 /**
  * controllers/authController.js - Authentication Controller
  * Handles OAuth 2.0 authorization URL generation, token exchange,
- * JWT issuance, and Firestore user upsert for Google and Instagram.
- * Also handles the separate Google Photos OAuth flow (photoslibrary.readonly scope)
+ * JWT issuance, and Firestore user upsert for Google login.
+ * Also handles the separate Google Drive OAuth flow (drive.readonly scope)
  * so users can pull their own videos into VocalIQ coaching sessions.
  * Author: Angaddeep Singh Gupta | CS651 Project 2
  */
@@ -136,20 +136,6 @@ const getPhotosStatus = async (req, res) => {
   }
 };
 
-// ── Instagram OAuth ────────────────────────────────────────────────────────
-
-// instagramLogin - Redirects user to Instagram OAuth consent screen
-const instagramLogin = (req, res) => {
-  const authUrl = oauthService.getInstagramAuthUrl();
-  res.redirect(authUrl);
-};
-
-// instagramCallback - Exchanges Instagram auth code for access token
-const instagramCallback = async (req, res) => {
-  // TODO: Implement Instagram token exchange - Angaddeep
-  res.json({ message: "Instagram callback - coming soon" });
-};
-
 // getMe - Returns the currently authenticated user's info from Firestore
 const getMe = async (req, res) => {
   try {
@@ -172,8 +158,6 @@ module.exports = {
   googlePhotosLogin,
   googlePhotosCallback,
   getPhotosStatus,
-  instagramLogin,
-  instagramCallback,
   getMe,
   logout,
 };

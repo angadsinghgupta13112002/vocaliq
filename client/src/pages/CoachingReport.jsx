@@ -235,12 +235,26 @@ const CoachingReport = () => {
         {/* Tab: Tips */}
         {activeTab === "tips" && (
           <div>
-            {(s.detailedTips || []).map((tip, i) => <TipCard key={i} tip={tip} index={i} />)}
-            {s.practicePlan && (
-              <div className="card" style={{ borderLeft: "3px solid var(--brand)", marginTop: 8 }}>
-                <h3 style={{ marginBottom: 10, color: "var(--brand)" }}>Your Practice Plan</h3>
-                <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>{s.practicePlan}</p>
+            {(s.detailedTips || []).length === 0 && !s.practicePlan ? (
+              <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>💡</div>
+                <h3 style={{ marginBottom: 8 }}>Coaching tips unavailable for this session</h3>
+                <p className="text-muted text-sm" style={{ maxWidth: 420, margin: "0 auto" }}>
+                  Gemini's Pass 2 coaching plan could not be generated for this recording —
+                  this can happen if the model hit a safety filter or the response timed out.
+                  Record a new session to get personalized tips.
+                </p>
               </div>
+            ) : (
+              <>
+                {(s.detailedTips || []).map((tip, i) => <TipCard key={i} tip={tip} index={i} />)}
+                {s.practicePlan && (
+                  <div className="card" style={{ borderLeft: "3px solid var(--brand)", marginTop: 8 }}>
+                    <h3 style={{ marginBottom: 10, color: "var(--brand)" }}>Your Practice Plan</h3>
+                    <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>{s.practicePlan}</p>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -296,43 +310,55 @@ const CoachingReport = () => {
 
         {/* Tab: Vocal Control */}
         {activeTab === "vocal" && (
-          <div className="grid-2">
-            {vc.pacing && (
-              <div className="vocal-card">
-                <div className="vocal-icon" style={{ background: "rgba(79,110,247,.15)" }}>⚡</div>
-                <h3>Pacing</h3>
-                <div className="wpm-display" style={{ marginTop: 8 }}>
-                  <span className="wpm-num" style={{ color: "var(--yellow)" }}>{vc.pacing.current}</span>
-                  <span className="wpm-label">wpm (you)</span>
-                  <span style={{ color: "var(--muted)", margin: "0 4px" }}>→</span>
-                  <span className="wpm-num" style={{ color: "var(--green)" }}>{vc.pacing.target}</span>
-                  <span className="wpm-label">wpm (target)</span>
+          !vc.pacing && !vc.tone && !vc.breath && !vc.pause ? (
+            <div className="card" style={{ textAlign: "center", padding: "40px 24px" }}>
+              <div style={{ fontSize: 32, marginBottom: 12 }}>🎵</div>
+              <h3 style={{ marginBottom: 8 }}>Vocal control data unavailable for this session</h3>
+              <p className="text-muted text-sm" style={{ maxWidth: 420, margin: "0 auto" }}>
+                Gemini's Pass 2 coaching plan could not be generated for this recording —
+                this can happen if the model hit a safety filter or the response timed out.
+                Record a new session to get pacing, tone, breath, and pause advice.
+              </p>
+            </div>
+          ) : (
+            <div className="grid-2">
+              {vc.pacing && (
+                <div className="vocal-card">
+                  <div className="vocal-icon" style={{ background: "rgba(79,110,247,.15)" }}>⚡</div>
+                  <h3>Pacing</h3>
+                  <div className="wpm-display" style={{ marginTop: 8 }}>
+                    <span className="wpm-num" style={{ color: "var(--yellow)" }}>{vc.pacing.current}</span>
+                    <span className="wpm-label">wpm (you)</span>
+                    <span style={{ color: "var(--muted)", margin: "0 4px" }}>→</span>
+                    <span className="wpm-num" style={{ color: "var(--green)" }}>{vc.pacing.target}</span>
+                    <span className="wpm-label">wpm (target)</span>
+                  </div>
+                  <p>{vc.pacing.technique}</p>
                 </div>
-                <p>{vc.pacing.technique}</p>
-              </div>
-            )}
-            {vc.tone && (
-              <div className="vocal-card">
-                <div className="vocal-icon" style={{ background: "rgba(168,85,247,.15)" }}>🎵</div>
-                <h3>Vocal Tone</h3>
-                <p style={{ marginTop: 8 }}>{vc.tone}</p>
-              </div>
-            )}
-            {vc.breath && (
-              <div className="vocal-card">
-                <div className="vocal-icon" style={{ background: "rgba(34,197,94,.15)" }}>💨</div>
-                <h3>Breath Control</h3>
-                <p style={{ marginTop: 8 }}>{vc.breath}</p>
-              </div>
-            )}
-            {vc.pause && (
-              <div className="vocal-card">
-                <div className="vocal-icon" style={{ background: "rgba(234,179,8,.15)" }}>⏸️</div>
-                <h3>Pause Technique</h3>
-                <p style={{ marginTop: 8 }}>{vc.pause}</p>
-              </div>
-            )}
-          </div>
+              )}
+              {vc.tone && (
+                <div className="vocal-card">
+                  <div className="vocal-icon" style={{ background: "rgba(168,85,247,.15)" }}>🎵</div>
+                  <h3>Vocal Tone</h3>
+                  <p style={{ marginTop: 8 }}>{vc.tone}</p>
+                </div>
+              )}
+              {vc.breath && (
+                <div className="vocal-card">
+                  <div className="vocal-icon" style={{ background: "rgba(34,197,94,.15)" }}>💨</div>
+                  <h3>Breath Control</h3>
+                  <p style={{ marginTop: 8 }}>{vc.breath}</p>
+                </div>
+              )}
+              {vc.pause && (
+                <div className="vocal-card">
+                  <div className="vocal-icon" style={{ background: "rgba(234,179,8,.15)" }}>⏸️</div>
+                  <h3>Pause Technique</h3>
+                  <p style={{ marginTop: 8 }}>{vc.pause}</p>
+                </div>
+              )}
+            </div>
+          )
         )}
       </div>
     </>

@@ -20,12 +20,15 @@ RUN npm run build          # Vite bakes VITE_API_URL=/api from .env.production
 # Stage 2 — production Express server
 FROM node:20-alpine AS production
 WORKDIR /app
+# ffmpeg is required for server-side video frame extraction (emotion timeline on Drive uploads)
+RUN apk add --no-cache ffmpeg
 COPY server/package*.json ./
 RUN npm ci --only=production --silent
 COPY server/ ./
 COPY --from=client-builder /app/client/dist ./public   # React build → /app/public
 
 ENV NODE_ENV=production
+ENV PORT=8080
 EXPOSE 8080
 CMD ["node", "server.js"]
 ```
@@ -43,13 +46,13 @@ gcloud run deploy vocaliq \
   --source . \
   --region us-central1 \
   --allow-unauthenticated \
-  --service-account auraboard-sa@auraboard-492122.iam.gserviceaccount.com \
-  --memory 1Gi \
-  --cpu 1 \
+  --service-account vocaliq-sa@vocaliq-PROJECT-ID.iam.gserviceaccount.com \
+  --memory 2Gi \
+  --cpu 2 \
   --timeout 540 \
   --min-instances 0 \
   --max-instances 3 \
-  --set-env-vars "NODE_ENV=production,GEMINI_MODEL=gemini-2.5-flash,GOOGLE_CLOUD_PROJECT_ID=auraboard-492122,GCS_BUCKET_NAME=auraboard-audio,JWT_EXPIRES_IN=7d" \
+  --set-env-vars "NODE_ENV=production,GEMINI_MODEL=gemini-2.5-flash,GOOGLE_CLOUD_PROJECT_ID=<gcp-project-id>,GCS_BUCKET_NAME=<gcs-bucket-name>,JWT_EXPIRES_IN=7d" \
   --set-env-vars "GEMINI_API_KEY=<key>" \
   --set-env-vars "GOOGLE_CLIENT_ID=<id>" \
   --set-env-vars "GOOGLE_CLIENT_SECRET=<secret>" \
@@ -57,7 +60,7 @@ gcloud run deploy vocaliq \
   --set-env-vars "CLIENT_URL=https://vocaliq-956080638663.us-central1.run.app" \
   --set-env-vars "GOOGLE_REDIRECT_URI=https://vocaliq-956080638663.us-central1.run.app/api/auth/google/callback" \
   --set-env-vars "GOOGLE_PHOTOS_REDIRECT_URI=https://vocaliq-956080638663.us-central1.run.app/api/auth/google/photos/callback" \
-  --project auraboard-492122 --quiet
+  --project <gcp-project-id> --quiet
 ```
 
 > **Note:** `PORT` is intentionally omitted — Cloud Run injects it automatically. Including it causes a deployment validation error.
@@ -66,7 +69,7 @@ gcloud run deploy vocaliq \
 
 ## Service account & credentials
 
-VocalIQ uses **Application Default Credentials (ADC)** on Cloud Run. The service account `auraboard-sa@auraboard-492122.iam.gserviceaccount.com` is attached to the Cloud Run service and has:
+VocalIQ uses **Application Default Credentials (ADC)** on Cloud Run. The service account `vocaliq-sa@vocaliq-PROJECT-ID.iam.gserviceaccount.com` is attached to the Cloud Run service and has:
 
 | Role | Purpose |
 |---|---|
@@ -95,7 +98,7 @@ To update just the environment variables (e.g. after getting a new API key):
 gcloud run services update vocaliq \
   --region us-central1 \
   --update-env-vars "GEMINI_API_KEY=<new-key>" \
-  --project auraboard-492122
+  --project <gcp-project-id>
 ```
 
 ---
@@ -107,7 +110,8 @@ After deploying for the first time, add the Cloud Run URL to the OAuth 2.0 clien
 | Field | Value |
 |---|---|
 | Authorized JavaScript origins | `https://vocaliq-956080638663.us-central1.run.app` |
-| Authorized redirect URIs | `https://vocaliq-956080638663.us-central1.run.app/api/auth/google/callback` |
+| Authorized redirect URIs | `https://vocaliq-956080638663.us-central1.run.app/api/auth/google/callback` (main login) |
+| Authorized redirect URIs | `https://vocaliq-956080638663.us-central1.run.app/api/auth/google/photos/callback` (Google Drive picker) |
 
 ---
 
@@ -115,9 +119,9 @@ After deploying for the first time, add the Cloud Run URL to the OAuth 2.0 clien
 
 | Setting | Value | Reason |
 |---|---|---|
-| Memory | 1 GiB | Gemini video processing buffers can be large |
-| CPU | 1 vCPU | Sufficient for Node.js + Express |
-| Timeout | 540 seconds | Gemini File API polling can take 60+ seconds; two-pass chain adds more |
+| Memory | 2 GiB | Drive upload holds 100 MB+ video in RAM simultaneously with GCS upload, Gemini File API upload, and ffmpeg frame extraction |
+| CPU | 2 vCPU | Parallelism from Promise.all (GCS + Gemini + ffmpeg/Vision concurrently) benefits from extra core |
+| Timeout | 540 seconds | Gemini File API polling can take 60+ seconds; Pass 1 + Pass 2 + optional Pass 3 chain adds more |
 | Min instances | 0 | Scale to zero when idle (cost saving) |
 | Max instances | 3 | Cap concurrency to control Gemini API costs |
 | Concurrency | Default (80) | Express is non-blocking; handles concurrent requests well |
@@ -128,7 +132,7 @@ After deploying for the first time, add the Cloud Run URL to the OAuth 2.0 clien
 
 ```bash
 # Just redeploy — Cloud Build handles the rest
-gcloud run deploy vocaliq --source . --region us-central1 --project auraboard-492122 --quiet
+gcloud run deploy vocaliq --source . --region us-central1 --project <gcp-project-id> --quiet
 ```
 
 Cloud Build caches Docker layers. A typical redeploy takes 2–3 minutes.
@@ -149,5 +153,5 @@ curl https://vocaliq-956080638663.us-central1.run.app/health
 # View recent Cloud Run logs
 gcloud logging read \
   'resource.type="cloud_run_revision" AND resource.labels.service_name="vocaliq"' \
-  --project auraboard-492122 --limit 20 --format "value(textPayload)"
+  --project <gcp-project-id> --limit 20 --format "value(textPayload)"
 ```

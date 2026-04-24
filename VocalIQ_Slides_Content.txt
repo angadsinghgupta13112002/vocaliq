@@ -1,6 +1,6 @@
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 VOCALIQ — AI SPEAKING COACH
-CS651 Web Application Development | Project 2
+CS651 Web Systems | Project 2
 Angaddeep Singh Gupta
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

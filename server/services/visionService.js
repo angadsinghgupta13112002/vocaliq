@@ -155,7 +155,8 @@ const analyzeFrames = async (frames) => {
  * Used to add a brief emotion overview to the coaching report.
  *
  * @param {Array} timeline - Output from analyzeFrames()
- * @returns {Object} - { dominantEmotion, emotionCounts, nervousSeconds, confidentSeconds }
+ * @returns {Object} - { dominantEmotion, emotionCounts, nervousSeconds, confidentSeconds,
+ *                       eyeContactPercent, eyeContactRating, lookingAwaySeconds }
  */
 const summarizeEmotionTimeline = (timeline) => {
   if (!timeline || timeline.length === 0) {

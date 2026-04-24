@@ -1,6 +1,6 @@
 # Gemini AI Pipeline
 
-VocalIQ uses a **two-pass Gemini chain** to analyze speech. Pass 1 assesses the recording. Pass 2 receives Pass 1's output as context and generates a deeper coaching plan. Both passes use `responseMimeType: "application/json"` to force structured output.
+VocalIQ uses a **Gemini analysis chain** of up to three passes. Pass 1 assesses the recording. Pass 2 receives Pass 1's output as context and generates a deeper coaching plan. For Google Drive videos, Pass 3 analyzes hand gestures by reusing the already-uploaded Gemini file — zero extra upload cost. All passes use `responseMimeType: "application/json"` to force structured output.
 
 ---
 
@@ -9,6 +9,8 @@ VocalIQ uses a **two-pass Gemini chain** to analyze speech. Pass 1 assesses the 
 ```
 Video/Audio buffer
         │
+        ├──── (video) ──► uploadVideoToGemini() → Gemini File API URI
+        │                        │
 ┌───────▼──────────────────────────────────────────┐
 │  PASS 1 — Speech Assessment                      │
 │  Model: gemini-2.5-flash                         │
@@ -29,10 +31,22 @@ Video/Audio buffer
 │  Output:                                         │
 │    detailedTips[], vocalControl{},               │
 │    strengthsToKeep[], practicePlan               │
+└───────────────────────┬──────────────────────────┘
+                        │ (Drive uploads only — reuses same Gemini file URI)
+┌───────────────────────▼──────────────────────────┐
+│  PASS 3 — Gesture Analysis  (Drive videos only)  │
+│  Model: gemini-2.5-flash                         │
+│  Input: same Gemini File API URI (no re-upload)  │
+│                                                  │
+│  Output:                                         │
+│    gestureTimeline[] — one entry per 3 seconds   │
+│    { second, gesture, handsCount }               │
 └──────────────────────────────────────────────────┘
         │
 Merged result saved to Firestore
 ```
+
+> **Pass 3 is Drive-only.** For webcam/upload sessions, [MediaPipe HandLandmarker](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker) runs entirely in the browser and sends the gesture timeline as a JSON field on the `/analyze` request — no extra Gemini call needed.
 
 ---
 
@@ -149,6 +163,39 @@ Pass 2 output shape:
   "practicePlan": "Day 1: count fillers. Day 2: rewrite hedging language. Day 3: full mock interview."
 }
 ```
+
+---
+
+## Pass 3 Prompt: Gesture Analysis (Drive uploads only)
+
+For Google Drive videos, client-side MediaPipe cannot run (no browser), so a third Gemini pass inspects the same already-uploaded file — **zero extra upload cost**.
+
+The prompt instructs Gemini to classify the dominant hand gesture for every 3-second window using eight fixed labels:
+
+| Label | Meaning |
+|---|---|
+| `open_hand` | Fingers spread open, palm clearly visible |
+| `pointing` | Index finger extended toward camera or to one side |
+| `peace` | Two fingers up (V / peace sign) |
+| `thumbs_up` | Thumb pointing upward |
+| `fist` | Closed fist, all fingers curled in |
+| `partial_open` | Some fingers extended but not fully open |
+| `neutral_hand` | Relaxed hand at rest, not actively gesturing |
+| `no_hands` | Hands not visible or out of frame |
+
+Pass 3 output shape (array, one entry per 3-second interval):
+
+```json
+[
+  { "second": 0,  "gesture": "open_hand", "handsCount": 2 },
+  { "second": 3,  "gesture": "pointing",  "handsCount": 1 },
+  { "second": 6,  "gesture": "no_hands",  "handsCount": 0 }
+]
+```
+
+Pass 3 failures are non-fatal — if Gemini returns malformed JSON or times out, `gestureTimeline` is set to `[]` and the rest of the report is unaffected.
+
+For webcam and upload sessions, MediaPipe runs in the browser (zero server cost) and sends the same `{ second, gesture, handsCount }` format as a JSON field on the `/api/coaching/analyze` request.
 
 ---
 

@@ -252,7 +252,7 @@ module.exports = { sendServerEvent };
   <tr><td>session_submitted</td><td>Frontend</td><td>CoachingSession — on Analyze click</td><td>mode, scenario</td></tr>
   <tr><td>session_complete</td><td>Frontend</td><td>CoachingSession — on success</td><td>mode, scenario</td></tr>
   <tr><td>report_tab_viewed</td><td>Frontend</td><td>CoachingReport — on tab click</td><td>tab</td></tr>
-  <tr><td>session_analyzed</td><td>Backend</td><td>coachingController after Firestore save</td><td>mode, scenario, language, overall_score</td></tr>
+  <tr><td>session_analyzed</td><td>Backend</td><td>coachingController after Firestore save (both /analyze and /analyze-from-drive)</td><td>mode, scenario, language, overall_score, emotion_frames, dominant_emotion; source: "google_drive" added for Drive-sourced sessions</td></tr>
 </table>
 
 <!-- ─── METRIC 1 ─── -->

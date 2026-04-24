@@ -1,7 +1,7 @@
 /**
  * routes/authRoutes.js - Authentication Route Definitions
  * Defines OAuth 2.0 login, callback, logout, and current user endpoints.
- * Includes a separate Google Photos OAuth flow (photoslibrary.readonly scope)
+ * Includes a separate Google Drive OAuth flow (drive.readonly scope)
  * for the video picker feature.
  * Author: Angaddeep Singh Gupta | CS651 Project 2
  */
@@ -20,10 +20,6 @@ router.get("/google/callback",    authController.googleCallback);    // Handle O
 router.get("/google/photos",          authMiddleware, authController.googlePhotosLogin);
 router.get("/google/photos/callback", authController.googlePhotosCallback);
 router.get("/google/photos/status",   authMiddleware, authController.getPhotosStatus);
-
-// ── Instagram Auth ─────────────────────────────────────────────────────────
-router.get("/instagram",          authController.instagramLogin);    // Redirect to Instagram OAuth
-router.get("/instagram/callback", authController.instagramCallback); // Handle Instagram code
 
 // ── Session ───────────────────────────────────────────────────────────────
 router.get("/me",      authMiddleware, authController.getMe);        // Get current logged-in user

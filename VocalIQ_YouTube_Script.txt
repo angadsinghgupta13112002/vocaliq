@@ -147,8 +147,7 @@ Let me walk you through our deployment setup.
 
 [OPEN: console.cloud.google.com → Cloud Run → vocaliq]
 
-VocalIQ is deployed on Google Cloud Run under our
-project auraboard-492122. Cloud Run is Google's fully
+VocalIQ is deployed on Google Cloud Run. Cloud Run is Google's fully
 managed serverless container platform — it runs our
 Docker container and automatically scales based on
 traffic, including scaling to zero when idle.

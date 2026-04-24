@@ -4,8 +4,9 @@
  * stream to the coaching pipeline.
  * Author: Angaddeep Singh Gupta | CS651 Project 2
  */
+const axios                                  = require("axios");
 const { db }                                 = require("../config/firebase");
-const { getUserVideos, streamVideoDownload } = require("../services/googlePhotosService");
+const { getUserVideos }                      = require("../services/googlePhotosService");
 const { refreshGoogleToken }                 = require("../services/oauthService");
 
 // Helper: retrieve both tokens for the current user from Firestore

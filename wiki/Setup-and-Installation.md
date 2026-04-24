@@ -2,12 +2,13 @@
 
 ## Prerequisites
 
-| Requirement | Version |
-|---|---|
-| Node.js | 20 or later |
-| npm | 10 or later |
-| gcloud CLI | Any recent version (for deploy only) |
-| Google Cloud project | With Firestore, GCS, and Gemini API enabled |
+| Requirement | Version | Notes |
+|---|---|---|
+| Node.js | 20 or later | |
+| npm | 10 or later | |
+| ffmpeg | Any recent | Required for server-side frame extraction (Drive uploads). Install via `brew install ffmpeg` (macOS) or `apt install ffmpeg` (Linux). |
+| gcloud CLI | Any recent version | For deploy only |
+| Google Cloud project | — | With Firestore, GCS, Gemini API, Cloud Vision, and Drive API enabled |
 
 ---
 
@@ -62,9 +63,8 @@ GOOGLE_PHOTOS_REDIRECT_URI=http://localhost:8080/api/auth/google/photos/callback
 JWT_SECRET=<a long random hex string>
 JWT_EXPIRES_IN=7d
 
-# Instagram (optional — not implemented yet)
-INSTAGRAM_APP_ID=placeholder
-INSTAGRAM_REDIRECT_URI=placeholder
+# Google Analytics (optional — frontend only, set in client/.env)
+# VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 ```
 
 Place your Firebase service account key at `server/service-account-key.json`. Download it from **Firebase Console → Project Settings → Service Accounts → Generate new private key**.
@@ -82,10 +82,14 @@ VITE_API_URL=http://localhost:8080/api
 ### Enable APIs
 
 ```bash
-gcloud services enable firestore.googleapis.com \
-  storage.googleapis.com run.googleapis.com \
-  cloudbuild.googleapis.com generativelanguage.googleapis.com \
-  vision.googleapis.com drive.googleapis.com
+gcloud services enable \
+  firestore.googleapis.com \
+  storage.googleapis.com \
+  run.googleapis.com \
+  cloudbuild.googleapis.com \
+  generativelanguage.googleapis.com \
+  vision.googleapis.com \
+  drive.googleapis.com
 ```
 
 ### Create a GCS bucket

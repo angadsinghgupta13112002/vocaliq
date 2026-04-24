@@ -245,9 +245,9 @@ const CoachingSession = () => {
 
               <div className="card-sm">
                 <p style={{ fontSize: 12, color: "var(--muted)", marginBottom: 8 }}>
-                  <strong style={{ color: "var(--text)" }}>Two-pass AI + Emotion Analysis:</strong><br/>
-                  Gemini analyzes your speech in two passes. Cloud Vision tracks facial expressions
-                  frame-by-frame to show when you looked nervous or confident.
+                  <strong style={{ color: "var(--text)" }}>Three-pass AI + Emotion + Gesture Analysis:</strong><br/>
+                  Gemini scores your speech (Pass 1) and builds a coaching plan (Pass 2). MediaPipe
+                  tracks your hand gestures. Cloud Vision reads every frame for emotion and eye contact.
                 </p>
                 <p className="text-xs text-muted">⏱ Takes 30–90 seconds after submission</p>
               </div>

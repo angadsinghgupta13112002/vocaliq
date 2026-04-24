@@ -388,7 +388,7 @@ Document ID = `{uid}_{Date.now()}`
     "emotionCounts":     "object — { confident: n, nervous: n, ... }",
     "nervousSeconds":    ["number"],
     "confidentSeconds":  ["number"],
-    "eyeContactPercent": "number — 0 to 100",
+    "eyeContactPercent": "number 0–100, or null for audio-only sessions (no frames)",
     "eyeContactRating":  "string — excellent | good | needs_work | poor",
     "lookingAwaySeconds": ["number"]
   },
