@@ -110,10 +110,12 @@ export const extractGestures = async (
   return new Promise((resolve) => {
     const url    = URL.createObjectURL(videoBlob);
     const video  = document.createElement("video");
-    video.src         = url;
+    video.preload     = "metadata";   // match frameExtractor — ensures accurate duration
     video.muted       = true;
     video.playsInline = true;
     video.crossOrigin = "anonymous";
+    video.src         = url;
+    video.load();                     // match frameExtractor — triggers reliable metadata load
 
     const canvas  = document.createElement("canvas");
     canvas.width  = 320;
@@ -133,10 +135,11 @@ export const extractGestures = async (
       const duration = video.duration;
       if (!duration || !isFinite(duration)) { cleanup(); resolve([]); return; }
 
-      // Build list of timestamps to sample
+      // Build list of timestamps to sample — clamp each to strictly within duration
+      // so a misreported .mov duration never produces out-of-bounds timestamps
       const times = [];
       for (let t = 0; t < duration && times.length < maxFrames; t += intervalSec) {
-        times.push(Math.round(t));
+        times.push(Math.min(Math.round(t), Math.floor(duration)));
       }
 
       let i = 0;
