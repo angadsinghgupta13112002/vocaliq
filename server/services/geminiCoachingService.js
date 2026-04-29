@@ -46,7 +46,12 @@ const safeParseGemini = (text, label) => {
 // Writes video buffer to a temp file, uploads to Gemini File API, polls until
 // ACTIVE, then deletes the temp file. Returns the Gemini file object with .uri
 const uploadVideoToGemini = async (videoBuffer, mimeType = "video/webm") => {
-  const tmpPath = path.join(os.tmpdir(), `vocaliq_${Date.now()}.webm`);
+  // Derive extension from mimeType so the temp file has the correct type on disk
+  const ext =
+    mimeType.includes("quicktime") ? "mov"  :
+    mimeType.includes("webm")      ? "webm" :
+    mimeType.includes("x-msvideo") ? "avi"  : "mp4";
+  const tmpPath = path.join(os.tmpdir(), `vocaliq_${Date.now()}.${ext}`);
   fs.writeFileSync(tmpPath, videoBuffer);
   try {
     const uploadResult = await fileManager.uploadFile(tmpPath, {

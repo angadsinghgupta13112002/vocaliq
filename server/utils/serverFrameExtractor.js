@@ -67,14 +67,7 @@ const extractFramesFromBuffer = async (
   } finally {
     // Always clean up temp files — don't let errors leave gigabytes of junk
     try { fs.unlinkSync(tmpInput); } catch (_) {}
-    try {
-      if (fs.existsSync(tmpDir)) {
-        fs.readdirSync(tmpDir).forEach(f => {
-          try { fs.unlinkSync(path.join(tmpDir, f)); } catch (_) {}
-        });
-        fs.rmdirSync(tmpDir);
-      }
-    } catch (_) {}
+    try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (_) {}
   }
 };
 

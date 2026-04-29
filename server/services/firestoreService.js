@@ -1,8 +1,7 @@
 /**
  * services/firestoreService.js - Firestore CRUD Abstraction Layer
  * Provides reusable helper functions for reading and writing to
- * all 5 Firestore collections: users, photo_analysis, audio_analysis,
- * aura_reports, analytics_logs.
+ * VocalIQ's Firestore collections: users, coaching_sessions.
  * Author: Lasya Uma Sri Lingala | CS651 Project 2
  */
 const { db } = require("../config/firebase");

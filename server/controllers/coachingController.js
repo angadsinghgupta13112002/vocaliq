@@ -216,6 +216,8 @@ const analyzeFromDrive = async (req, res) => {
     return res.status(400).json({ success: false, error: "Invalid Google Drive URL" });
   }
 
+  try {
+
   // Retrieve stored Drive tokens for this user
   const userDoc = await getDocument("users", uid);
   if (!userDoc?.photosAccessToken) {
@@ -314,16 +316,20 @@ const analyzeFromDrive = async (req, res) => {
     createdAt:          new Date(),
   };
 
-  await setDocument("coaching_sessions", sessionId, sessionData);
-  console.log(`[coaching] Drive session saved: ${sessionId}`);
+    await setDocument("coaching_sessions", sessionId, sessionData);
+    console.log(`[coaching] Drive session saved: ${sessionId}`);
 
-  sendServerEvent(uid, "session_analyzed", {
-    mode: "video", scenario, source: "google_drive",
-    language: pass1.language || "unknown",
-    overall_score: pass1.overallScore || 0,
-  });
+    sendServerEvent(uid, "session_analyzed", {
+      mode: "video", scenario, source: "google_drive",
+      language: pass1.language || "unknown",
+      overall_score: pass1.overallScore || 0,
+    });
 
-  res.json({ success: true, sessionId, message: "Analysis complete" });
+    res.json({ success: true, sessionId, message: "Analysis complete" });
+  } catch (err) {
+    console.error("[coaching] analyzeFromDrive error:", err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
 };
 
 module.exports = { analyzeSession, getSessions, getSession, analyzeFromDrive };

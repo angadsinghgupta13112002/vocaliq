@@ -63,7 +63,7 @@ const CoachingReport = () => {
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading) return (
+  if (loading || !session) return (
     <>
       <Navbar />
       <div className="page with-navbar" style={{ textAlign: "center", paddingTop: 80 }}>

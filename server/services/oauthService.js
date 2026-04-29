@@ -58,9 +58,6 @@ const exchangeGooglePhotosCode = async (code) => {
     redirect_uri:  process.env.GOOGLE_PHOTOS_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI.replace("/callback", "/photos/callback"),
     grant_type:    "authorization_code",
   });
-  // DEBUG: log the full token response to verify which scopes Google actually issued
-  console.log("[oauth] Photos token response scopes:", tokenRes.data.scope);
-  console.log("[oauth] Photos token response keys:", Object.keys(tokenRes.data));
   return {
     accessToken:  tokenRes.data.access_token,
     refreshToken: tokenRes.data.refresh_token || null,
