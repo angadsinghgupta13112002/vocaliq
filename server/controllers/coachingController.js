@@ -156,13 +156,19 @@ const analyzeSession = async (req, res) => {
 const getSessions = async (req, res) => {
   try {
     const { uid } = req.user;
-    const sessions = await queryCollection("coaching_sessions", "userId", uid, 50);
-
-    sessions.sort((a, b) => {
-      const ta = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
-      const tb = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
-      return tb - ta;
-    });
+    // Order by createdAt desc at the Firestore level (composite index: userId ASC + createdAt DESC)
+    // Falls back to JS sort if the index hasn't finished building yet
+    let sessions;
+    try {
+      sessions = await queryCollection("coaching_sessions", "userId", uid, 50, "createdAt", "desc");
+    } catch (indexErr) {
+      console.warn("[coaching] orderBy index not ready, falling back to JS sort:", indexErr.message);
+      sessions = await queryCollection("coaching_sessions", "userId", uid, 50);
+      sessions.sort((a, b) => {
+        const getMs = (s) => s.createdAt?.toDate?.()?.getTime?.() ?? (s.createdAt?._seconds ? s.createdAt._seconds * 1000 : parseInt(s.sessionId?.split("_")[1] || "0"));
+        return getMs(b) - getMs(a);
+      });
+    }
 
     res.json({ success: true, sessions });
   } catch (err) {

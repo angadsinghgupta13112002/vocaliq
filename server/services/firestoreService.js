@@ -31,17 +31,19 @@ const setDocument = async (collection, docId, data, merge = false) => {
 
 /**
  * queryCollection - Queries a collection with a where clause
- * @param {string} collection - Firestore collection name
- * @param {string} field      - Field to filter on
- * @param {string} value      - Value to match
- * @param {number} limitNum   - Max documents to return
- * @returns {Array}           - Array of document data objects
+ * @param {string}      collection   - Firestore collection name
+ * @param {string}      field        - Field to filter on
+ * @param {string}      value        - Value to match
+ * @param {number}      limitNum     - Max documents to return
+ * @param {string|null} orderByField - Optional field to order results by
+ * @param {string}      orderDir     - "asc" or "desc" (default "desc")
+ * @returns {Array}                  - Array of document data objects
  */
-const queryCollection = async (collection, field, value, limitNum = 20) => {
-  const snapshot = await db.collection(collection)
-    .where(field, "==", value)
-    .limit(limitNum)
-    .get();
+const queryCollection = async (collection, field, value, limitNum = 20, orderByField = null, orderDir = "desc") => {
+  let ref = db.collection(collection).where(field, "==", value);
+  if (orderByField) ref = ref.orderBy(orderByField, orderDir);
+  ref = ref.limit(limitNum);
+  const snapshot = await ref.get();
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
