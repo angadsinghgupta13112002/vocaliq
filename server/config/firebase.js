@@ -3,7 +3,6 @@
  * Initializes Firestore and Firebase Admin using service account credentials.
  * - Local dev:  reads key file via GOOGLE_APPLICATION_CREDENTIALS env var
  * - Cloud Run:  uses Application Default Credentials (ADC) from attached SA
- * Author: Lasya Uma Sri Lingala | CS651 Project 2
  */
 const admin = require("firebase-admin");
 const path  = require("path");
