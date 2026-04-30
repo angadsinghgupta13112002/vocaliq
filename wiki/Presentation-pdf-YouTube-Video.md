@@ -2,9 +2,9 @@
 
 ## Slide Deck — PDF
 
-📄 **[ADD LINK]** — Upload `VocalIQ_Presentation.pdf` to this wiki page or link to it here.
+📄 **Presentation.pdf** — 13 slides, 1.8 MB, exported from PowerPoint via macOS Quartz renderer.
 
-> To convert the .pptx to PDF: open `VocalIQ_Presentation.pptx` in PowerPoint or Google Slides → File → Download as PDF → save as `Presentation.pdf`
+> The file `Presentation.pdf` is included in the repository root at `/vocaliq/Presentation.pdf`
 
 ---
 
