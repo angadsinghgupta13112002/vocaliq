@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VocalIQ — Presentation Script (May 5)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Georgia', serif;
+    background: #ffffff;
+    color: #1a1a1a;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 48px 60px;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  /* Cover */
+  .cover {
+    text-align: center;
+    padding: 60px 0 50px;
+    border-bottom: 3px solid #1a1a2e;
+    margin-bottom: 40px;
+  }
+  .cover h1 {
+    font-size: 32px;
+    font-weight: bold;
+    color: #1a1a2e;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+  }
+  .cover .sub {
+    font-size: 15px;
+    color: #555;
+    margin-bottom: 6px;
+  }
+  .cover .tag {
+    display: inline-block;
+    background: #1a1a2e;
+    color: #fff;
+    font-size: 11px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-top: 14px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Slide block */
+  .slide {
+    margin-bottom: 36px;
+    page-break-inside: avoid;
+  }
+
+  .slide-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .slide-number {
+    background: #1a1a2e;
+    color: #fff;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 3px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-family: 'Arial', sans-serif;
+  }
+
+  .slide-title {
+    font-size: 17px;
+    font-weight: bold;
+    color: #1a1a2e;
+    border-bottom: 2px solid #e8e8e8;
+    padding-bottom: 6px;
+    flex: 1;
+  }
+
+  .script-box {
+    background: #f8f8f8;
+    border-left: 4px solid #1a1a2e;
+    padding: 14px 18px;
+    border-radius: 0 6px 6px 0;
+    font-style: italic;
+    color: #333;
+    line-height: 1.8;
+  }
+
+  .script-box p {
+    margin-bottom: 10px;
+  }
+  .script-box p:last-child {
+    margin-bottom: 0;
+  }
+
+  .script-box strong {
+    font-style: normal;
+    color: #1a1a2e;
+  }
+
+  .script-box ul {
+    margin: 8px 0 8px 20px;
+  }
+  .script-box ul li {
+    margin-bottom: 5px;
+  }
+
+  .important-badge {
+    display: inline-block;
+    background: #e63946;
+    color: #fff;
+    font-size: 10px;
+    font-family: Arial, sans-serif;
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-left: 8px;
+    font-style: normal;
+    vertical-align: middle;
+  }
+
+  /* Q&A Section */
+  .qa-section {
+    margin-top: 40px;
+    page-break-before: always;
+  }
+
+  .qa-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: #1a1a2e;
+    border-bottom: 3px solid #1a1a2e;
+    padding-bottom: 8px;
+    margin-bottom: 24px;
+  }
+
+  .qa-item {
+    margin-bottom: 22px;
+    page-break-inside: avoid;
+  }
+
+  .qa-question {
+    font-weight: bold;
+    color: #1a1a2e;
+    font-size: 13.5px;
+    margin-bottom: 6px;
+    font-family: Arial, sans-serif;
+  }
+
+  .qa-question::before {
+    content: "Q: ";
+    color: #e63946;
+  }
+
+  .qa-answer {
+    background: #f0f4ff;
+    border-left: 4px solid #4361ee;
+    padding: 10px 16px;
+    border-radius: 0 6px 6px 0;
+    font-style: italic;
+    color: #333;
+    line-height: 1.75;
+  }
+
+  .qa-answer::before {
+    content: "A: ";
+    font-weight: bold;
+    font-style: normal;
+    color: #4361ee;
+  }
+
+  /* Tips */
+  .tip-box {
+    background: #fff8e1;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    padding: 12px 16px;
+    margin-top: 30px;
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    color: #555;
+  }
+  .tip-box strong {
+    color: #333;
+  }
+
+  /* Footer */
+  .footer {
+    margin-top: 50px;
+    text-align: center;
+    font-size: 11px;
+    color: #aaa;
+    border-top: 1px solid #eee;
+    padding-top: 16px;
+    font-family: Arial, sans-serif;
+  }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <h1>VocalIQ — Presentation Script</h1>
+  <p class="sub">CS 651: Web Systems &nbsp;|&nbsp; Professor Lynne Grewe &nbsp;|&nbsp; Cal State East Bay</p>
+  <p class="sub">Presented by: <strong>Angaddeep Singh Gupta</strong></p>
+  <span class="tag">May 5, 2026 &nbsp;·&nbsp; 13 Slides</span>
+</div>
+
+
+<!-- SLIDE 1 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 1</span>
+    <div class="slide-title">Title Slide</div>
+  </div>
+  <div class="script-box">
+    <p>"Good morning / afternoon Professor Grewe. My name is Angaddeep Singh Gupta and this is VocalIQ — an AI-powered speaking coach I built for CS651 Project 2. The live application is deployed on Google Cloud Run, and the full source code is on GitHub. Let me walk you through what I built and how it works."</p>
+  </div>
+</div>
+
+
+<!-- SLIDE 2 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 2</span>
+    <div class="slide-title">The Problem</div>
+  </div>
+  <div class="script-box">
+    <p>"The motivation behind VocalIQ is simple. Most people never get real, actionable feedback on how they speak. Studies show that 75% of the population experiences public speaking anxiety, yet professional speaking coaches charge between $100 and $300 per hour — making personalized coaching completely inaccessible for most people.</p>
+    <p>The core insight is: <strong>you can't improve what you can't measure.</strong> VocalIQ fixes this by giving anyone instant, AI-generated coaching after recording a speech — completely free."</p>
+  </div>
+</div>
+
+
+<!-- SLIDE 3 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 3</span>
+    <div class="slide-title">The Solution</div>
+  </div>
+  <div class="script-box">
+    <p>"VocalIQ works in three steps: you record or upload a speech, our backend processes it through Google Gemini 2.5 Flash, and within 90 seconds you get a full coaching report.</p>
+    <p>The report gives you five sub-scores — Content, Delivery, Confidence, Pacing, and Engagement — plus a timestamped transcript, specific improvement exercises, and a 7-day practice plan. It works for any speaking scenario: job interviews, class presentations, sales pitches, or lectures."</p>
+  </div>
+</div>
+
+
+<!-- SLIDE 4 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 4</span>
+    <div class="slide-title">Technology Stack</div>
+  </div>
+  <div class="script-box">
+    <p>"On the frontend, I used <strong>React 19 with Vite</strong> for fast builds and React Router for client-side navigation.</p>
+    <p>The backend is <strong>Node.js 20 with Express 5</strong>, using JWT for stateless authentication.</p>
+    <p>For Google services — and this is where the project really comes together — I'm using six Google technologies:</p>
+    <ul>
+      <li><strong>Google OAuth 2.0</strong> — Sign In with Google</li>
+      <li><strong>Gemini 2.5 Flash</strong> — AI speech analysis</li>
+      <li><strong>Cloud Firestore</strong> — User profiles and session data</li>
+      <li><strong>Google Cloud Storage</strong> — Video and audio files</li>
+      <li><strong>Google Cloud Run</strong> — Containerized deployment</li>
+      <li><strong>Google Analytics GA4</strong> — Frontend and backend event tracking</li>
+    </ul>"</p>
+  </div>
+</div>
+
+
+<!-- SLIDE 5 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 5</span>
+    <div class="slide-title">System Architecture</div>
+  </div>
+  <div class="script-box">
+    <p>"Here's how data flows through the system. The browser runs the React frontend. When a user records a video, the MediaRecorder API captures it. The frontend sends it to the Express API running on Cloud Run, with a JWT token in the Authorization header.</p>
+    <p>The server then kicks off the pipeline: it authenticates the user via the JWT middleware, uploads the video to Gemini's File API, runs the three-pass AI analysis, sends frames to Cloud Vision for emotion detection, saves the video to Cloud Storage, and saves the full session to Firestore.</p>
+    <p>Crucially, <strong>the frontend never touches Firestore or Cloud Storage directly</strong> — everything goes through the protected API. This keeps our data secure."</p>
+  </div>
+</div>
+
+
+<!-- SLIDE 6 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 6</span>
+    <div class="slide-title">Three-Pass Gemini Coaching Pipeline <span class="important-badge">★ KEY SLIDE</span></div>
+  </div>
+  <div class="script-box">
+    <p>"This is the most technically interesting part of the application — the three-pass Gemini coaching chain.</p>
+    <p><strong>Pass 1 — Assessment:</strong> The raw video file is uploaded to the Gemini File API. Pass 1 asks Gemini to objectively assess the speech — giving an overall score from 1 to 10, five sub-scores, detected emotion, words per minute, a full timestamped transcript, and the top 3 improvement areas. This pass is purely analytical — no coaching yet.</p>
+    <p><strong>Pass 2 — Deep Coaching:</strong> Pass 2 takes the JSON output from Pass 1 and feeds it back to Gemini as context. Now Gemini knows exactly what score was given and why. It then generates detailed tip cards with exercises and rephrasing examples, a full vocal control breakdown covering pacing, tone, breathing, and pauses, and a 7-day practice plan.</p>
+    <p><strong>Pass 3 — Gesture Analysis (Drive videos only):</strong> Pass 3 runs only when the user submits a video from Google Drive. Gemini analyses the video every 3 seconds and returns a gesture label and hand count for each timestamp — open palm, pointing, thumbs up, closed fist, etc. This builds the gesture timeline shown in the Gestures tab of the coaching report.</p>
+    <p><strong>Why three passes instead of one?</strong> Because if you ask Gemini to do everything in one prompt, it gives generic advice. By grounding Pass 2 in the actual Pass 1 data, the coaching becomes specific to that exact speech. Pass 3 is kept separate because gesture analysis is computationally independent and only relevant for video sessions. The quality improvement is dramatic — this was one of my biggest lessons from this project."</p>
+  </div>
+</div>
+
+
+<!-- SLIDE 7 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 7</span>
+    <div class="slide-title">Authentication — Google OAuth 2.0 + JWT</div>
+  </div>
+  <div class="script-box">
+    <p>"Authentication uses the standard Google OAuth 2.0 flow. The user clicks Sign In with Google, gets redirected to Google's consent screen, Google sends back an authorization code, and our server exchanges that code for the user's profile info.</p>
+    <p>We then upsert the user document in Firestore — so returning users get updated, new users get created — and issue a signed JWT with a 7-day expiry. The JWT is stored in localStorage on the client and sent as a Bearer token on every API request. The authMiddleware verifies it on every protected route.</p>
+    <p>One important security decision: <strong>we do NOT store Google's access token on the server side.</strong> We only needed it once to get the user's profile. This minimizes our attack surface."</p>
+  </div>
+</div>
+
+
+<!-- SLIDE 8 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 8</span>
+    <div class="slide-title">Database — Cloud Firestore</div>
+  </div>
+  <div class="script-box">
+    <p>"The database is Cloud Firestore with two collections.</p>
+    <p>The <strong>users</strong> collection stores one document per user, keyed by their Google UID — display name, email, photo URL, and last login time.</p>
+    <p>The <strong>coaching_sessions</strong> collection stores one document per analysis, keyed by userId_timestamp. Each document has everything: media URL, mode, overall score, all five sub-scores, full transcript, improvement tips, detailed coaching cards, vocal control data, and the practice plan.</p>
+    <p>There's a composite Firestore index on userId ascending and createdAt descending — this lets us efficiently fetch a user's sessions sorted newest-first for the dashboard. All reads and writes go through the JWT-protected API. <strong>The client never accesses Firestore directly."</strong></p>
+  </div>
+</div>
+
+
+<!-- SLIDE 9 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 9</span>
+    <div class="slide-title">Coaching Report — What You Get</div>
+  </div>
+  <div class="script-box">
+    <p>"The coaching report has five tabs:</p>
+    <ul>
+      <li><strong>Overview</strong> — Animated score ring with overall score, five sub-scores, and top improvement tips</li>
+      <li><strong>Emotion Timeline</strong> — Cloud Vision face detection results: color-coded emotion timeline frame by frame, with an eye contact percentage</li>
+      <li><strong>Gestures</strong> — MediaPipe HandLandmarker results: 21 hand landmarks tracked client-side, showing gesture types with an expressiveness score</li>
+      <li><strong>Transcript</strong> — Full timestamped transcript with issue tags and suggested fixes for each flagged moment</li>
+      <li><strong>Tips & Coaching</strong> — Full Pass 2 Gemini output: detailed tip cards with exercises, rephrasing examples, and the 7-day practice plan</li>
+    </ul>
+    <p>This tab structure lets users focus on whichever aspect of their speaking they want to improve."</p>
+  </div>
+</div>
+
+
+<!-- SLIDE 10 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 10</span>
+    <div class="slide-title">Analytics &amp; Logging</div>
+  </div>
+  <div class="script-box">
+    <p>"I implemented analytics at two levels.</p>
+    <p>On the <strong>frontend</strong>, gtag.js sends events to GA4 for every meaningful user action: page views on route changes, login success, session submitted, session complete, and which report tab the user clicked.</p>
+    <p>On the <strong>backend</strong>, I use the GA4 Measurement Protocol — this sends events directly from the server to GA4 via HTTP POST. This captures events even if the browser closes before analysis finishes. The key backend events are login after the JWT is issued, and session_analyzed after Firestore save — which includes the score, emotion, and source.</p>
+    <p>For logging, every server operation logs to Google Cloud Logging via stdout with a bracketed prefix — [gemini], [coaching], [storage], [analytics] — making it easy to filter logs in the Cloud Run console."</p>
+  </div>
+</div>
+
+
+<!-- SLIDE 11 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 11</span>
+    <div class="slide-title">Deployment — Google Cloud Run</div>
+  </div>
+  <div class="script-box">
+    <p>"The app is deployed on Google Cloud Run using a <strong>multi-stage Docker build</strong>.</p>
+    <p>Stage 1 uses a node:20-alpine image to build the React frontend with <em>npm run build</em>. Stage 2 copies the built React files and the Express server into a clean image. Express serves the React static files AND handles all API routes on the same origin — so there's no CORS issue between frontend and backend.</p>
+    <p>For credentials, I use <strong>Application Default Credentials (ADC)</strong>. There's no service account key file in the Docker image. Instead, the Cloud Run service account is granted the necessary IAM roles for Firestore, Cloud Storage, and Gemini. This is the production-safe way to handle credentials on Google Cloud.</p>
+    <p>One lesson learned: Cloud Run assigns the PORT environment variable automatically. You must read <em>process.env.PORT</em> — you cannot hardcode it or the container will never start."</p>
+  </div>
+</div>
+
+
+<!-- SLIDE 12 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 12</span>
+    <div class="slide-title">Lessons Learned</div>
+  </div>
+  <div class="script-box">
+    <p>"Six key lessons from this project:</p>
+    <ul>
+      <li><strong>Express 5 breaking change</strong> — app.get("*") no longer works for the SPA catch-all. You must use app.use() instead.</li>
+      <li><strong>Cloud Run PORT</strong> — Cloud Run injects the PORT variable automatically. You cannot hardcode it or set it yourself. The container simply won't start.</li>
+      <li><strong>ADC vs key files</strong> — Never commit a service account JSON file to Git. Use Application Default Credentials on Cloud Run — grant IAM roles to the service account instead.</li>
+      <li><strong>Vite bakes API URLs at build time</strong> — Environment variables in Vite are embedded at build, not at runtime. I needed a .env.production file with the correct API base URL before building the Docker image.</li>
+      <li><strong>GA4 backend events</strong> — gtag.js only works in the browser. For server-side tracking you need the GA4 Measurement Protocol, which is a separate HTTP API with its own API secret.</li>
+      <li><strong>Two-pass Gemini prompting</strong> — One large prompt gives generic coaching. Breaking into Pass 1 (assess) and Pass 2 (coach using Pass 1 data) dramatically improves quality and specificity."</li>
+    </ul>
+  </div>
+</div>
+
+
+<!-- SLIDE 13 -->
+<div class="slide">
+  <div class="slide-header">
+    <span class="slide-number">SLIDE 13</span>
+    <div class="slide-title">Thank You / Q&amp;A</div>
+  </div>
+  <div class="script-box">
+    <p>"That wraps up VocalIQ. The app is live right now — feel free to try it. The full source code, wiki documentation, analytics report, and presentation PDF are all on GitHub.</p>
+    <p>I'm happy to do a live demo or answer any questions."</p>
+  </div>
+</div>
+
+
+<!-- Q&A -->
+<div class="qa-section">
+  <div class="qa-title">⚡ Likely Professor Questions &amp; Answers</div>
+
+  <div class="qa-item">
+    <div class="qa-question">Why Gemini instead of OpenAI?</div>
+    <div class="qa-answer">This is a Google Cloud course and Gemini 2.5 Flash has native video understanding via the File API — no need to extract frames manually for the main analysis. It was the right tool for this use case.</div>
+  </div>
+
+  <div class="qa-item">
+    <div class="qa-question">How does the Gemini File API work?</div>
+    <div class="qa-answer">You upload the video file to Gemini's File API, which gives back a file URI. You then pass that URI in the prompt content instead of sending base64 data. Gemini processes the video natively — it understands audio, video frames, and speech simultaneously.</div>
+  </div>
+
+  <div class="qa-item">
+    <div class="qa-question">Why not use Firestore security rules?</div>
+    <div class="qa-answer">All data access goes through the Express API, which verifies the JWT before any Firestore operation. The API is the security layer — adding Firestore rules on top would be redundant since the client never calls Firestore directly.</div>
+  </div>
+
+  <div class="qa-item">
+    <div class="qa-question">How does the emotion detection work?</div>
+    <div class="qa-answer">Every 3 seconds I extract a frame from the video using the HTML5 Canvas API. Those base64 JPEG frames are sent to the Google Cloud Vision Face Detection API, which returns emotion likelihoods — joy, sorrow, anger, surprise — plus head pose angles for eye contact estimation.</div>
+  </div>
+
+  <div class="qa-item">
+    <div class="qa-question">What happens if Gemini fails mid-pipeline?</div>
+    <div class="qa-answer">The pipeline is sequential — if Pass 1 fails, we return an error immediately. If Pass 2 fails, Pass 1 data is already returned so the user still gets a partial report. Error handling middleware catches all exceptions and returns consistent JSON error responses.</div>
+  </div>
+
+  <div class="qa-item">
+    <div class="qa-question">How does Google Drive integration work?</div>
+    <div class="qa-answer">The user connects their Drive via OAuth with drive.readonly scope. The server downloads the selected video file directly from Drive to a temp file, runs the full 3-pass Gemini pipeline on it including gesture analysis, then cleans up the temp file. The browser never downloads the video — only the session ID is returned to the client.</div>
+  </div>
+
+  <div class="qa-item">
+    <div class="qa-question">What is MediaPipe and how is it used?</div>
+    <div class="qa-answer">MediaPipe is Google's on-device ML library. It runs entirely in the browser as a WebAssembly module — no server call needed. It tracks 21 hand landmarks per hand and classifies gestures like open palm, pointing, thumbs up, and closed fist. The results build a gesture timeline shown in the Gestures tab of the coaching report.</div>
+  </div>
+
+  <div class="tip-box">
+    <strong>💡 Presentation Tip:</strong> Keep each slide to about 60–90 seconds. Slide 6 (Three-Pass Pipeline) is your most impressive technical slide — spend the most time here. Always offer a live demo at the end if the professor asks.
+  </div>
+</div>
+
+
+<div class="footer">
+  VocalIQ — AI Speaking Coach &nbsp;|&nbsp; CS 651 Web Systems &nbsp;|&nbsp; Angaddeep Singh Gupta &nbsp;|&nbsp; May 5, 2026
+</div>
+
+</body>
+</html>
